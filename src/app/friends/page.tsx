@@ -14,13 +14,7 @@ export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('Online');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const friends = [
-    { id: 1, name: 'Valen', status: 'In Lobby', isOnline: true },
-    { id: 2, name: 'Mateo', status: 'Playing Chaos Survival', isOnline: true },
-    { id: 3, name: 'Nico', status: 'In Garage', isOnline: true },
-    { id: 4, name: 'Santi', status: 'Offline', isOnline: false },
-    { id: 5, name: 'Lucas', status: 'Offline', isOnline: false },
-  ];
+  const friends: any[] = [];
 
   const filteredFriends = friends.filter(f => 
     f.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -30,7 +24,7 @@ export default function FriendsPage() {
   const tabs: { id: Tab, label: string }[] = [
     { id: 'Online', label: 'Online' },
     { id: 'All', label: 'All Friends' },
-    { id: 'Requests', label: 'Pending (2)' },
+    { id: 'Requests', label: 'Pending' },
     { id: 'Blocked', label: 'Blocked' },
   ];
 
@@ -149,24 +143,9 @@ export default function FriendsPage() {
               )}
 
               {activeTab === 'Requests' && (
-                <div className="space-y-2">
-                  {[
-                    { id: 6, name: 'ProGamer_99' },
-                    { id: 7, name: 'ChaosMaster' }
-                  ].map((req) => (
-                    <div key={req.id} className="flex items-center justify-between p-3 rounded-lg border border-mangi-border bg-mangi-bg-secondary/30">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-mangi-panel flex items-center justify-center font-black text-xl border border-mangi-border">
-                          {req.name.substring(0, 1).toUpperCase()}
-                        </div>
-                        <h3 className="font-bold text-lg">{req.name}</h3>
-                      </div>
-                      <div className="flex gap-2">
-                        <GlowButton variant="danger" size="sm" onClick={() => playError()}>Decline</GlowButton>
-                        <GlowButton variant="leaf" size="sm" onClick={() => playSuccess()}>Accept</GlowButton>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-20 text-mangi-text-muted">
+                  <UserPlus size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>You have no pending requests.</p>
                 </div>
               )}
 
