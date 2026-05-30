@@ -745,7 +745,7 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
 
   return (
     <RigidBody 
-      name="car"
+      name="my_car"
       ref={carRef} 
       colliders={false} 
       position={initialPosition} 
@@ -1153,6 +1153,45 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
 
   const [deathScreen, setDeathScreen] = useState<{ killer: string, weapon: string, distance?: number } | null>(null);
 
+  useEffect(() => {
+    const onNetShoot = (e: any) => {
+      const { id, position, direction, velocity, speed, weapon } = e.detail;
+      const dirVec = new THREE.Vector3(direction.x, direction.y, direction.z);
+      const velVec = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
+      setProjectiles(prev => [...prev, { id: Date.now() + Math.random(), position: [position.x, position.y, position.z], direction: dirVec, velocity: velVec, speed, weapon }]);
+    };
+    
+    const onNetHit = (e: any) => {
+      const { shooter, damage, weapon } = e.detail;
+      if (healthState.amount > 0) {
+        healthState.amount = Math.max(0, healthState.amount - damage);
+        if (healthState.amount <= 0 && !deathScreen) {
+          window.dispatchEvent(new CustomEvent('local-player-died', { detail: { killer: shooter, weapon } }));
+          setDeathScreen({ killer: shooter, weapon });
+          const killId = Date.now() + Math.random();
+          setKillFeed(prev => [...prev, { id: killId, killer: shooter, victim: user?.username || 'You', weapon }]);
+          setTimeout(() => setKillFeed(current => current.filter(k => k.id !== killId)), 7000);
+        }
+      }
+    };
+    
+    const onNetKilled = (e: any) => {
+      const { victim, killer, weapon } = e.detail;
+      const killId = Date.now() + Math.random();
+      setKillFeed(prev => [...prev, { id: killId, killer, victim, weapon }]);
+      setTimeout(() => setKillFeed(current => current.filter(k => k.id !== killId)), 7000);
+    };
+
+    window.addEventListener('network-player-shoot', onNetShoot);
+    window.addEventListener('network-player-hit', onNetHit);
+    window.addEventListener('network-player-killed', onNetKilled);
+    return () => {
+      window.removeEventListener('network-player-shoot', onNetShoot);
+      window.removeEventListener('network-player-hit', onNetHit);
+      window.removeEventListener('network-player-killed', onNetKilled);
+    };
+  }, [user?.username, deathScreen]);
+
   const [matchTime, setMatchTime] = useState(180); // 3 minutos de partida
   const [intermission, setIntermission] = useState(false);
   const [isSpectator, setIsSpectator] = useState(false);
@@ -1498,10 +1537,16 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           (Math.random() - 0.5) * 0.2
         )).normalize();
         newProjs.push({ id: Date.now() + i, position, direction: spreadDir, velocity, speed, weapon: weaponType });
+        
+        // Emit to network
+        window.dispatchEvent(new CustomEvent('local-player-shoot', { detail: { position: {x: position[0], y: position[1], z: position[2]}, direction: {x: spreadDir.x, y: spreadDir.y, z: spreadDir.z}, velocity, speed, weapon: weaponType } }));
       }
       setProjectiles(prev => [...prev, ...newProjs]);
     } else {
       setProjectiles(prev => [...prev, { id: Date.now(), position, direction, velocity, speed, weapon: weaponType }]);
+      
+      // Emit to network
+      window.dispatchEvent(new CustomEvent('local-player-shoot', { detail: { position: {x: position[0], y: position[1], z: position[2]}, direction: {x: direction.x, y: direction.y, z: direction.z}, velocity, speed, weapon: weaponType } }));
     }
 
     if (!hostSettings.infiniteAmmo) {
@@ -1591,7 +1636,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                 // Si el proyectil impactó contra algo físico
                 if (hitDist !== null) {
                   // Prevenir chocar con tu propio auto
-                  if (hitName === 'car') return;
+                  if (hitName === 'my_car') return;
 
                   // Combos: Dispararle a las curas o nitros
                   if (hitName.startsWith('nitro_')) {
@@ -1603,12 +1648,19 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                     return;
                   }
 
-                  // Hit físico simple (sin combate falso ni muertes aleatorias)
+                  // Hit físico simple
                   sounds.play(user?.hitsoundUrl || 'hitmarker', 0.5, !!user?.hitsoundUrl);
                   
                   let damage = WEAPONS[weaponType].damage;
                   if (weaponType === 'shotgun') {
                     damage = Math.max(5, damage - (hitDist * 0.2));
+                  }
+                  
+                  // Hit another player!
+                  if (hitName.startsWith('car_') && hitPos) {
+                     const targetUsername = hitName.replace('car_', '');
+                     window.dispatchEvent(new CustomEvent('local-player-hit', { detail: { target: targetUsername, damage, weapon: weaponType, distance: hitDist } }));
+                     setHitMarkers(prev => [...prev, { id: Date.now() + Math.random(), pos: hitPos as [number, number, number], amount: Math.floor(damage) }]);
                   }
                   
                   if (hitPos) {

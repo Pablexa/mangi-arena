@@ -121,6 +121,14 @@ app.prepare().then(() => {
       socket.to(serverId).emit('player_shot', { id: socket.id, ...data });
     });
 
+    socket.on('player_hit', (serverId, data) => {
+      socket.to(serverId).emit('player_hit', { id: socket.id, ...data });
+    });
+
+    socket.on('player_killed', (serverId, data) => {
+      socket.to(serverId).emit('player_killed', { id: socket.id, ...data });
+    });
+
     socket.on('create_room', (roomData) => {
       // Si el usuario ya tiene una sala creada, bórrala primero
       if (roomData.hostUser) {

@@ -24,22 +24,8 @@ export default function PlayPage() {
       return;
     }
 
-    // Prevenir 2 partidas a la vez usando BroadcastChannel
-    const channel = new BroadcastChannel('mangi_game_channel');
-    
-    // Alguien más pregunta si estamos jugando, le decimos que sí
-    channel.onmessage = (e) => {
-      if (e.data === 'check_active') {
-        channel.postMessage('already_playing');
-      } else if (e.data === 'already_playing') {
-        // Alguien más respondió que ya está jugando, nos vamos
-        alert("Ya tienes una partida abierta en otra pestaña. Cierra esta para continuar.");
-        window.location.href = '/servers';
-      }
-    };
-    
-    // Preguntamos si hay alguien más jugando
-    channel.postMessage('check_active');
+    // Nota: Removido el BroadcastChannel para permitir probar en 2 pestañas simultáneamente
+
 
     const interval = setInterval(() => {
       const start = performance.now();
@@ -50,7 +36,6 @@ export default function PlayPage() {
     
     return () => {
       clearInterval(interval);
-      channel.close();
     };
   }, []);
 
