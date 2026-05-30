@@ -194,9 +194,15 @@ app.prepare().then(() => {
     });
 
     socket.on('get_admin_data', () => {
+      const allPlayers = [];
+      Object.values(global.roomPlayers || {}).forEach(room => {
+        Object.values(room).forEach(p => {
+           if(p.username) allPlayers.push({ id: p.id, username: p.username });
+        });
+      });
       socket.emit('admin_data', {
-        rooms: global.activeRooms.map(r => ({ id: r.id, map: r.map, players: r.players })),
-        players: Object.values(global.roomPlayers || {}).flatMap(room => Object.values(room).map(p => p.username))
+        rooms: global.activeRooms.map(r => ({ id: r.id, name: r.name || r.id, players: r.players })),
+        players: allPlayers
       });
     });
 

@@ -143,9 +143,12 @@ export default function AdminTrollPanel() {
                 onChange={(e) => setSelectedTarget(e.target.value)}
               >
                 <option value="all">TODOS LOS JUGADORES (GLOBAL)</option>
-                <option value="room-123">Sala ROOM-123</option>
-                <option value="MangiDev">Usuario: MangiDev</option>
-                <option value="RocketPro">Usuario: RocketPro</option>
+                {activeRooms.map(r => (
+                  <option key={r.id} value={`room:${r.id}`}>Sala {r.name}</option>
+                ))}
+                {onlinePlayers.map(p => (
+                  <option key={p.id || p.username} value={`user:${p.username}`}>Usuario: {p.username}</option>
+                ))}
               </select>
               <p className="text-xs text-zinc-500">Las acciones de la derecha se aplicarán al objetivo seleccionado.</p>
             </GlassCard>

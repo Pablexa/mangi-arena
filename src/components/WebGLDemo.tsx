@@ -120,47 +120,7 @@ function HUDUpdater() {
   return null;
 }
 
-// Pre-renderizamos materiales, modelos y fuentes para evitar tirones (lag spikes) la primera vez que se usan
-function MaterialPreloader() {
-  const sniper = useGLTF('/models/Sniper.glb');
-  const shotgun = useGLTF('/models/Shotgun.glb');
-  const revolver = useGLTF('/models/Revolver.glb');
-  const healthpack = useGLTF('/models/healthpack.glb');
-  const crater = useGLTF('/models/crater.glb');
-  const meteor = useGLTF('/models/Meteor.glb');
-  const carScene = useGLTF('/models/car_default.glb');
-  const turboScene = useGLTF('/models/turbo.glb');
-
-  return (
-    <group position={[0, -1000, 0]}>
-      <primitive object={sniper.scene} />
-      <primitive object={shotgun.scene} />
-      <primitive object={revolver.scene} />
-      <primitive object={healthpack.scene} />
-      <primitive object={crater.scene} />
-      <primitive object={meteor.scene} />
-      <primitive object={carScene.scene} />
-      <primitive object={turboScene.scene} />
-      
-      {/* Pre-calentar físicas de Rapier para evitar lag al disparar por primera vez */}
-      <RigidBody colliders="ball">
-        <mesh>
-          <sphereGeometry args={[0.2, 16, 16]} />
-          <meshStandardMaterial color="#FF4D2E" emissive="#FF4D2E" emissiveIntensity={3} toneMapped={false} />
-        </mesh>
-      </RigidBody>
-      
-      <RigidBody colliders="cuboid">
-        <mesh>
-          <ringGeometry args={[0.5, 1, 32]} />
-          <meshBasicMaterial color="#FF4D2E" transparent opacity={1} side={THREE.DoubleSide} />
-        </mesh>
-      </RigidBody>
-      
-      <Text fontSize={1} color="#f97316" outlineWidth={0.05} outlineColor="#000">0</Text>
-    </group>
-  );
-}
+// Preloader removed for RAM optimization
 
 // Armas disponibles con sus estadísticas
 const WEAPONS: any = {
@@ -560,6 +520,14 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
     const isUpsideDown = _up.y < 0.3;
     const isVelocityZero = Math.abs(currentSpeed) < 1 && Math.abs(lateralSpeed) < 1;
     
+    // Out of bounds reset
+    if (pos.y < -15 || Math.abs(pos.x) > 150 || Math.abs(pos.z) > 150) {
+      body.setTranslation({ x: 0, y: 10, z: 0 }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      return;
+    }
+    
     // Auto-Volteo Automático (0.5s boca abajo y quieto)
     if (isUpsideDown && isVelocityZero) {
       flipTimer.current += delta;
@@ -793,6 +761,7 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
 }
 
 useGLTF.preload('/models/car_default.glb');
+useGLTF.preload('/models/caldi.glb');
 useGLTF.preload('/models/Sniper.glb');
 useGLTF.preload('/models/Shotgun.glb');
 useGLTF.preload('/models/Revolver.glb');
@@ -905,7 +874,7 @@ function MapVolcano({ onShootClick }: any) {
   const rockMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#27272a', roughness: 0.9, metalness: 0.1, side: THREE.DoubleSide }), []);
   const lavaMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f97316', emissive: '#ea580c', emissiveIntensity: 3, toneMapped: false, side: THREE.DoubleSide }), []);
   const glassMat = useMemo(() => new THREE.MeshPhysicalMaterial({ 
-    color: '#ef4444', transmission: 0.9, opacity: 1, metalness: 0.1, roughness: 0.2, ior: 1.5, side: THREE.DoubleSide, transparent: true
+    color: '#ef4444', opacity: 0.3, metalness: 0.1, roughness: 0.2, ior: 1.5, side: THREE.DoubleSide, transparent: true
   }), []);
   
   const MAP_RADIUS = 90;
@@ -963,7 +932,7 @@ function MapVolcano({ onShootClick }: any) {
 function MapTron({ onShootClick }: any) {
   const gridMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#000000', roughness: 0.1, metalness: 0.8, side: THREE.DoubleSide }), []);
   const glassMat = useMemo(() => new THREE.MeshPhysicalMaterial({ 
-    color: '#0ff', transmission: 0.9, opacity: 1, metalness: 0.1, roughness: 0, ior: 1.1, side: THREE.DoubleSide, transparent: true
+    color: '#0ff', opacity: 0.3, metalness: 0.1, roughness: 0, ior: 1.1, side: THREE.DoubleSide, transparent: true
   }), []);
   const tronCyan = useMemo(() => new THREE.MeshStandardMaterial({ color: '#0ff', emissive: '#0ff', emissiveIntensity: 2, toneMapped: false, side: THREE.DoubleSide }), []);
   const tronMagenta = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f0f', emissive: '#f0f', emissiveIntensity: 2, toneMapped: false, side: THREE.DoubleSide }), []);
@@ -1032,7 +1001,7 @@ function MapTron({ onShootClick }: any) {
 function MapAncestrim({ onShootClick }: any) {
   const floorMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#082f49', roughness: 0.2, metalness: 0.6, side: THREE.DoubleSide }), []);
   const glassMat = useMemo(() => new THREE.MeshPhysicalMaterial({ 
-    color: '#0ea5e9', transmission: 0.9, opacity: 1, metalness: 0.1, roughness: 0, ior: 1.2, side: THREE.DoubleSide, transparent: true
+    color: '#0ea5e9', opacity: 0.3, metalness: 0.1, roughness: 0, ior: 1.2, side: THREE.DoubleSide, transparent: true
   }), []);
   const accentMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#0369a1', emissive: '#0284c7', emissiveIntensity: 2, toneMapped: false, side: THREE.DoubleSide }), []);
   const coralMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#10b981', emissive: '#059669', emissiveIntensity: 1, side: THREE.DoubleSide }), []);
@@ -1693,7 +1662,6 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           {isSpectator && <SpectatorCamera />}
           <Preload all />
           <Physics timeStep="vary" gravity={[0, -9.81 * hostSettings.gravity, 0]}>
-            <MaterialPreloader />
             <MultiplayerManager 
               myCarRef={myCarRef} 
               myUsername={user?.username || 'Player'} 

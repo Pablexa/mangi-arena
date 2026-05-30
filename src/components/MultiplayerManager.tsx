@@ -214,12 +214,18 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
     window.addEventListener('request-map-change', handleMapChange);
     window.addEventListener('request-force-start', handleForceStart);
 
+    const handleBeforeUnload = () => {
+      sessionStorage.removeItem('currentServer');
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => { 
       window.removeEventListener('local-player-shoot', handleLocalShoot);
       window.removeEventListener('local-player-hit', handleLocalHit);
       window.removeEventListener('local-player-died', handleLocalKilled);
       window.removeEventListener('request-map-change', handleMapChange);
       window.removeEventListener('request-force-start', handleForceStart);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       clearInterval(metaSync);
       socket.disconnect(); 
     };
