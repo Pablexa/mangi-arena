@@ -9,6 +9,8 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
   global.activeRooms = global.activeRooms || [];
+  global.onlineUsers = global.onlineUsers || {}; // socketId -> username
+  global.usersData = global.usersData || {}; // username -> { friends, pending }
 
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
@@ -45,9 +47,58 @@ app.prepare().then(() => {
       });
     });
 
+    socket.on('user_online', (username) => {
+      if (!username) return;
+      global.onlineUsers[socket.id] = username;
+      if (!global.usersData[username]) {
+        global.usersData[username] = { friends: [], pending: [] };
+      }
+      
+      socket.emit('friend_data_sync', global.usersData[username]);
+      io.emit('online_users_updated', Object.values(global.onlineUsers));
+    });
+
+    socket.on('send_friend_request', (data) => {
+      const { from, to } = data;
+      if (global.usersData[to] && !global.usersData[to].pending.includes(from) && !global.usersData[to].friends.includes(from)) {
+        global.usersData[to].pending.push(from);
+        
+        const targetSocketId = Object.keys(global.onlineUsers).find(key => global.onlineUsers[key] === to);
+        if (targetSocketId) {
+          io.to(targetSocketId).emit('friend_data_sync', global.usersData[to]);
+        }
+      }
+    });
+
+    socket.on('accept_friend_request', (data) => {
+      const { from, to } = data;
+      if (global.usersData[to] && global.usersData[from]) {
+         global.usersData[to].pending = global.usersData[to].pending.filter(u => u !== from);
+         
+         if (!global.usersData[to].friends.includes(from)) global.usersData[to].friends.push(from);
+         if (!global.usersData[from].friends.includes(to)) global.usersData[from].friends.push(to);
+
+         const toSocketId = Object.keys(global.onlineUsers).find(key => global.onlineUsers[key] === to);
+         const fromSocketId = Object.keys(global.onlineUsers).find(key => global.onlineUsers[key] === from);
+         
+         if (toSocketId) io.to(toSocketId).emit('friend_data_sync', global.usersData[to]);
+         if (fromSocketId) io.to(fromSocketId).emit('friend_data_sync', global.usersData[from]);
+      }
+    });
+
+    socket.on('decline_friend_request', (data) => {
+      const { from, to } = data;
+      if (global.usersData[to]) {
+         global.usersData[to].pending = global.usersData[to].pending.filter(u => u !== from);
+         const toSocketId = Object.keys(global.onlineUsers).find(key => global.onlineUsers[key] === to);
+         if (toSocketId) io.to(toSocketId).emit('friend_data_sync', global.usersData[to]);
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`[SOCKET] User disconnected: ${socket.id}`);
-      // We no longer delete the room immediately because navigating to /play causes a disconnect
+      delete global.onlineUsers[socket.id];
+      io.emit('online_users_updated', Object.values(global.onlineUsers));
     });
 
     socket.on('create_room', (roomData) => {

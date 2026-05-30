@@ -1,20 +1,48 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Navbar } from '@/components/Navbar';
 import { GlassCard } from '@/components/GlassCard';
 import { GlowButton } from '@/components/GlowButton';
 import { Search, UserPlus, Users, UserX, MessageSquare, Gamepad2 } from 'lucide-react';
 import { playHover, playClickConfirm, playSuccess, playError } from '@/utils/sound';
+import { io, Socket } from 'socket.io-client';
+import { useUserStore } from '@/store/useUserStore';
 
 type Tab = 'All' | 'Online' | 'Requests' | 'Blocked';
 
 export default function FriendsPage() {
+  const { user } = useUserStore();
   const [activeTab, setActiveTab] = useState<Tab>('Online');
   const [searchQuery, setSearchQuery] = useState('');
+  const [addFriendName, setAddFriendName] = useState('');
+  
+  const [onlineUsers, setOnlineUsers] = useState<string[]>([]);
+  const [friendData, setFriendData] = useState<{ friends: string[], pending: string[] }>({ friends: [], pending: [] });
+  const [socket, setSocket] = useState<Socket | null>(null);
 
-  const friends: any[] = [];
+  useEffect(() => {
+    if (!user?.username) return;
+    const s = io();
+    setSocket(s);
+    
+    s.emit('user_online', user.username);
+    
+    s.on('online_users_updated', (users: string[]) => {
+      setOnlineUsers(users);
+    });
+    
+    s.on('friend_data_sync', (data) => {
+      setFriendData(data || { friends: [], pending: [] });
+    });
+    
+    return () => { s.disconnect(); };
+  }, [user]);
+
+  const friends = (friendData?.friends || []).map(f => ({
+    id: f, name: f, status: onlineUsers.includes(f) ? 'Online' : 'Offline', isOnline: onlineUsers.includes(f)
+  }));
 
   const filteredFriends = friends.filter(f => 
     f.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -24,7 +52,7 @@ export default function FriendsPage() {
   const tabs: { id: Tab, label: string }[] = [
     { id: 'Online', label: 'Online' },
     { id: 'All', label: 'All Friends' },
-    { id: 'Requests', label: 'Pending' },
+    { id: 'Requests', label: `Pending${(friendData?.pending?.length || 0) > 0 ? ` (${friendData.pending.length})` : ''}` },
     { id: 'Blocked', label: 'Blocked' },
   ];
 
@@ -37,7 +65,13 @@ export default function FriendsPage() {
           <Users className="text-mangi-leaf" size={36} />
           FRIENDS
         </h1>
-        <GlowButton variant="secondary" size="md">
+        <GlowButton variant="secondary" size="md" onClick={() => {
+          const target = window.prompt("Enter friend's username:");
+          if (target && target !== user?.username) {
+            socket?.emit('send_friend_request', { from: user?.username, to: target });
+            playSuccess();
+          }
+        }}>
           <UserPlus size={18} className="mr-2" /> Add Friend
         </GlowButton>
       </div>
@@ -143,9 +177,34 @@ export default function FriendsPage() {
               )}
 
               {activeTab === 'Requests' && (
-                <div className="text-center py-20 text-mangi-text-muted">
-                  <UserPlus size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>You have no pending requests.</p>
+                <div className="space-y-2">
+                  {(friendData?.pending || []).length > 0 ? (
+                    friendData.pending.map((req, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 rounded-lg border border-mangi-border bg-mangi-bg-secondary/30">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-mangi-panel flex items-center justify-center font-black text-xl border border-mangi-border">
+                            {req.substring(0, 1).toUpperCase()}
+                          </div>
+                          <h3 className="font-bold text-lg">{req}</h3>
+                        </div>
+                        <div className="flex gap-2">
+                          <GlowButton variant="danger" size="sm" onClick={() => {
+                            socket?.emit('decline_friend_request', { from: req, to: user?.username });
+                            playError();
+                          }}>Decline</GlowButton>
+                          <GlowButton variant="leaf" size="sm" onClick={() => {
+                            socket?.emit('accept_friend_request', { from: req, to: user?.username });
+                            playSuccess();
+                          }}>Accept</GlowButton>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-20 text-mangi-text-muted">
+                      <UserPlus size={48} className="mx-auto mb-4 opacity-50" />
+                      <p>You have no pending requests.</p>
+                    </div>
+                  )}
                 </div>
               )}
 
