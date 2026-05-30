@@ -11,6 +11,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { usePlayerControls } from '@/utils/usePlayerControls';
 import { sounds } from '@/utils/sound';
 import { STORE_ITEMS } from '@/utils/storeItems';
+import { ShieldAlert } from 'lucide-react';
 
 export const globalCameraState = {
   isDragging: false,
@@ -532,6 +533,8 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
     const pos = body.translation();
     const rot = body.rotation();
     const vel = body.linvel();
+    
+    if (!pos || !rot || !vel) return;
     
     _quat.set(rot.x, rot.y, rot.z, rot.w);
     _forward.set(0, 0, 1).applyQuaternion(_quat).normalize();
@@ -1667,6 +1670,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
               myUsername={user?.username || 'Player'} 
               myProfilePicture={user?.profilePicture}
               myCarModel={adminCarModel}
+              myColor={equippedColor}
               activeWeapon={activeWeapon} 
             />
             {!deathScreen && !isSpectator && !intermission && (

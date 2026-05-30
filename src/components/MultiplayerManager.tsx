@@ -50,6 +50,7 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
 
     const currentPos = groupRef.current.translation();
     const currentQuat = groupRef.current.rotation();
+    if (!currentPos || !currentQuat) return;
     
     _currentPos.current.set(currentPos.x, currentPos.y, currentPos.z).lerp(targetPos.current, 10 * delta);
     _currentQuat.current.set(currentQuat.x, currentQuat.y, currentQuat.z, currentQuat.w).slerp(targetQuat.current, 10 * delta);
@@ -84,11 +85,10 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
   );
 }
 
-export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, activeWeapon }: any) {
+export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myCarModel, myColor, activeWeapon }: any) {
   const [players, setPlayers] = useState<Record<string, any>>({});
   const socketRef = useRef<any>(null);
   const serverId = typeof window !== 'undefined' ? sessionStorage.getItem('currentServer') : null;
-  const myColor = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('mangi-user-storage') || '{}')?.state?.user?.equippedColor || '#22d3ee') : '#22d3ee';
 
   useEffect(() => {
     if (!serverId) return;
