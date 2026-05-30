@@ -8,6 +8,7 @@ import { GlowButton } from '@/components/GlowButton';
 import { Search, Globe, Users, Lock, Unlock, Zap, Signal } from 'lucide-react';
 import { playHover, playClickConfirm, playNotification } from '@/utils/sound';
 import { MangiLogo } from '@/components/MangiLogo';
+import { io } from 'socket.io-client';
 
 export default function ServerBrowserPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -22,19 +23,22 @@ export default function ServerBrowserPage() {
   React.useEffect(() => {
     fetch('/api/active-servers')
       .then(res => res.json())
-      .then(data => setServers(data))
+      .then(data => {
+        setServers(Array.isArray(data) ? data : []);
+      })
       .catch(console.error);
 
-    const socket = require('socket.io-client').io();
+    const socket = io();
     socket.on('rooms_updated', (rooms: any[]) => {
-      setServers(rooms);
+      setServers(Array.isArray(rooms) ? rooms : []);
     });
     return () => {
       socket.disconnect();
     };
   }, []);
 
-  const filteredServers = servers.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const safeServers = Array.isArray(servers) ? servers : [];
+  const filteredServers = safeServers.filter(s => s && s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const handleJoinClick = (server: any) => {
     playClickConfirm();
@@ -313,7 +317,7 @@ export default function ServerBrowserPage() {
                    gravity: parseFloat(gravity?.value || '1'),
                  }));
 
-                 const socket = require('socket.io-client').io();
+                 const socket = io();
                  socket.emit('create_room', {
                    name: (document.querySelector('input[type="text"]') as HTMLInputElement)?.value || 'Custom Arena',
                    map: mapSelect?.value || 'Arena Clásica',
