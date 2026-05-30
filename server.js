@@ -133,6 +133,10 @@ app.prepare().then(() => {
       if (room) room.players = Object.keys(global.roomPlayers[serverId]).length;
     });
 
+    socket.on('force_start', (serverId) => {
+      socket.to(serverId).emit('game_started');
+    });
+
     socket.on('player_update', (serverId, data) => {
       socket.to(serverId).emit('player_updated', { id: socket.id, ...data });
     });

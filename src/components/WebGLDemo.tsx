@@ -200,13 +200,16 @@ function Projectile({ id, position, direction, velocity, speed, onHit, weapon }:
       mass={0.5} 
       ccd={true} 
       gravityScale={0}
-      onCollisionEnter={(e) => {
+      sensor
+      onIntersectionEnter={(e) => {
         if (!isHit.current) {
+          const hitName = (e.rigidBodyObject?.name || e.colliderObject?.name) as string || '';
+          if (hitName === 'projectile' || hitName === 'my_car') return; // Ignore own car and other projectiles
+          
           isHit.current = true;
           if (bulletRef.current) {
             const hitPos = bulletRef.current.translation();
             const dist = new THREE.Vector3(hitPos.x, hitPos.y, hitPos.z).distanceTo(new THREE.Vector3(...position));
-            const hitName = (e.rigidBodyObject?.name || e.colliderObject?.name) as string || '';
             onHit(id, dist, weapon, [hitPos.x, hitPos.y, hitPos.z], hitName);
           } else {
             onHit(id, null, weapon, null, '');
@@ -1265,10 +1268,16 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       }));
     };
     
+    const onNetGameStarted = () => {
+      setIntermission(false);
+    };
+
+    window.addEventListener('network-game-started', onNetGameStarted);
     window.addEventListener('network-player-metadata', onNetMetadata);
     window.addEventListener('network-player-joined', onNetPlayerJoined);
     window.addEventListener('network-player-left', onNetPlayerLeft);
     return () => {
+      window.removeEventListener('network-game-started', onNetGameStarted);
       window.removeEventListener('network-player-shoot', onNetShoot);
       window.removeEventListener('network-player-hit', onNetHit);
       window.removeEventListener('network-player-killed', onNetKilled);

@@ -47,7 +47,7 @@ export default function AdminTrollPanel() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (user?.username !== 'X') {
+    if (user?.username !== 'x') {
       setError('Acceso denegado: Tu cuenta no tiene permisos de administrador (Necesitas llamarte "X").');
       return;
     }
@@ -75,14 +75,14 @@ export default function AdminTrollPanel() {
               Panel de <span className="text-red-500">Administración</span>
             </h1>
           </div>
-          
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Contraseña de Admin</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   className="w-full bg-black border border-zinc-800 rounded-lg p-3 pl-10 text-white outline-none focus:border-red-500 transition-colors"
@@ -91,7 +91,7 @@ export default function AdminTrollPanel() {
               </div>
             </div>
             {error && <p className="text-red-500 text-sm font-bold text-center">{error}</p>}
-            <GlowButton variant="danger" className="w-full py-3" onClick={() => {}}>
+            <GlowButton variant="danger" className="w-full py-3" onClick={() => { }}>
               ACCEDER AL PANEL
             </GlowButton>
           </form>
@@ -137,7 +137,7 @@ export default function AdminTrollPanel() {
               <h2 className="text-lg font-bold text-white uppercase mb-4 flex items-center gap-2">
                 <Users className="text-purple-400" /> Objetivo
               </h2>
-              <select 
+              <select
                 className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-purple-500 transition-colors mb-4"
                 value={selectedTarget}
                 onChange={(e) => setSelectedTarget(e.target.value)}
@@ -154,16 +154,16 @@ export default function AdminTrollPanel() {
           {/* Columna Derecha: Acciones Troll */}
           <div className="lg:col-span-2 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
+
               {/* Monedas */}
               <GlassCard className="p-6 border-yellow-500/30 flex flex-col justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white uppercase mb-2 flex items-center gap-2">
                     <Coins className="text-yellow-400" /> Manipular Monedas
                   </h2>
-                  <input 
-                    type="number" 
-                    value={coinAmount} 
+                  <input
+                    type="number"
+                    value={coinAmount}
                     onChange={(e) => setCoinAmount(parseInt(e.target.value) || 0)}
                     className="w-full bg-black border border-zinc-800 rounded-lg p-2 text-white outline-none mb-3"
                   />
@@ -205,8 +205,8 @@ export default function AdminTrollPanel() {
                   <MessageSquare className="text-orange-400" /> Jumpscare / Anuncio Gigante
                 </h2>
                 <div className="flex gap-4">
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={announcementText}
                     onChange={(e) => setAnnouncementText(e.target.value)}
                     placeholder="Escribe el mensaje gigante para asustar..."

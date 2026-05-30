@@ -241,7 +241,7 @@ export default function ServerBrowserPage() {
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Max Jugadores</label>
-                  <input type="number" defaultValue={12} min={2} max={24} className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-mangi-orange transition-colors" />
+                  <input type="number" id="servers-host-max-players" defaultValue={12} min={2} max={24} className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-mangi-orange transition-colors" />
                 </div>
                 <div className="flex-1">
                   <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Privacidad</label>
@@ -309,6 +309,7 @@ export default function ServerBrowserPage() {
                  const timeLimit = document.getElementById('servers-host-time-limit') as HTMLSelectElement;
                  const infiniteAmmo = document.getElementById('servers-host-infinite-ammo') as HTMLInputElement;
                  const gravity = document.getElementById('servers-host-gravity') as HTMLInputElement;
+                 const maxPlayersInput = document.getElementById('servers-host-max-players') as HTMLInputElement;
                  
                  localStorage.setItem('mangiHostSettings', JSON.stringify({
                    map: mapSelect?.value || 'Arena Clásica',
@@ -328,7 +329,7 @@ export default function ServerBrowserPage() {
                    name: (document.querySelector('input[type="text"]') as HTMLInputElement)?.value || 'Custom Arena',
                    map: mapSelect?.value || 'Arena Clásica',
                    mode: modeSelect?.value || 'Deathmatch',
-                   maxPlayers: 12,
+                   maxPlayers: parseInt(maxPlayersInput?.value || '12'),
                    isPrivate: hostPrivacy === 'Privado (Con PIN)',
                    hostUser: user?.username || 'Player'
                  });

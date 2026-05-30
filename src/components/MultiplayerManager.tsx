@@ -197,19 +197,29 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
        socket.emit('player_killed', serverId, { victim: myUsername, ...e.detail });
     };
     const handleMapChange = (e: any) => {
-       socket.emit('change_map', serverId, e.detail);
+       socketRef.current.emit('change_map', serverId, e.detail);
     };
     
+    const handleForceStart = () => {
+       socketRef.current.emit('force_start', serverId);
+    };
+
+    socket.on('game_started', () => {
+       window.dispatchEvent(new CustomEvent('network-game-started'));
+    });
+
     window.addEventListener('local-player-shoot', handleLocalShoot);
     window.addEventListener('local-player-hit', handleLocalHit);
     window.addEventListener('local-player-died', handleLocalKilled);
     window.addEventListener('request-map-change', handleMapChange);
+    window.addEventListener('request-force-start', handleForceStart);
 
     return () => { 
       window.removeEventListener('local-player-shoot', handleLocalShoot);
       window.removeEventListener('local-player-hit', handleLocalHit);
       window.removeEventListener('local-player-died', handleLocalKilled);
       window.removeEventListener('request-map-change', handleMapChange);
+      window.removeEventListener('request-force-start', handleForceStart);
       clearInterval(metaSync);
       socket.disconnect(); 
     };
