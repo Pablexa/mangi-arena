@@ -47,15 +47,13 @@ app.prepare().then(() => {
 
     socket.on('disconnect', () => {
       console.log(`[SOCKET] User disconnected: ${socket.id}`);
-      // Remove rooms hosted by this user
-      global.activeRooms = global.activeRooms.filter(r => r.hostId !== socket.id);
-      io.emit('rooms_updated', global.activeRooms);
+      // We no longer delete the room immediately because navigating to /play causes a disconnect
     });
 
     socket.on('create_room', (roomData) => {
       const newRoom = {
         id: Math.random().toString(36).substring(7),
-        hostId: socket.id,
+        hostId: socket.id, // Will be obsolete after redirect, but fine for now
         name: roomData.name || 'Custom Arena',
         map: roomData.map || 'Arena Clásica',
         mode: roomData.mode || 'Chaos Survival',
@@ -63,8 +61,13 @@ app.prepare().then(() => {
         maxPlayers: roomData.maxPlayers || 12,
         ping: Math.floor(Math.random() * 40) + 10 + 'ms',
         isPrivate: roomData.isPrivate || false,
-        img: roomData.map === 'Cyberpunk City' ? 'https://images.pexels.com/photos/315938/pexels-photo-315938.jpeg?auto=compress&cs=tinysrgb&w=200' : 'https://images.pexels.com/photos/1633525/pexels-photo-1633525.jpeg?auto=compress&cs=tinysrgb&w=200'
+        img: roomData.map === 'Cyberpunk City' ? 'https://images.pexels.com/photos/315938/pexels-photo-315938.jpeg?auto=compress&cs=tinysrgb&w=200' : 'https://images.pexels.com/photos/1633525/pexels-photo-1633525.jpeg?auto=compress&cs=tinysrgb&w=200',
+        createdAt: Date.now()
       };
+      
+      // Limpiar salas viejas (más de 2 horas) para evitar memory leaks
+      global.activeRooms = global.activeRooms.filter(r => Date.now() - (r.createdAt || 0) < 7200000);
+      
       global.activeRooms.push(newRoom);
       io.emit('rooms_updated', global.activeRooms);
     });
