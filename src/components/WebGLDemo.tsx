@@ -1431,7 +1431,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       if (globalCameraState.isDragging && cameraSystem === 'free') {
         globalCameraState.azimuth -= e.movementX * 0.01;
         globalCameraState.polar -= e.movementY * 0.01;
-        globalCameraState.polar = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, globalCameraState.polar));
+        globalCameraState.polar = Math.max(0.1, Math.min(Math.PI - 0.1, globalCameraState.polar));
       }
     };
     const handleWheel = (e: WheelEvent) => {

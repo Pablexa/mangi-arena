@@ -48,7 +48,7 @@ export default function AdminTrollPanel() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (user?.username !== 'x') {
-      setError('Acceso denegado: Tu cuenta no tiene permisos de administrador (Necesitas llamarte "X").');
+      setError('Acceso denegado: Tu cuenta no tiene permisos de administrador (Necesitas llamarte "x").');
       return;
     }
     if (passwordInput === 'toiletmango67') {
