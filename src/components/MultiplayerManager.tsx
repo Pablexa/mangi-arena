@@ -215,6 +215,12 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
        window.dispatchEvent(new CustomEvent('network-game-started'));
     });
 
+    socket.on('server_closed', () => {
+       sessionStorage.removeItem('currentServer');
+       alert('El host ha abandonado la partida y el servidor se ha cerrado.');
+       window.location.href = '/servers';
+    });
+
     window.addEventListener('local-player-shoot', handleLocalShoot);
     window.addEventListener('local-player-hit', handleLocalHit);
     window.addEventListener('local-player-died', handleLocalKilled);

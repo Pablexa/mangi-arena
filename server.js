@@ -100,9 +100,20 @@ app.prepare().then(() => {
       for (const room of socket.rooms) {
         if (room !== socket.id && room !== 'global-chat') {
            if (global.roomPlayers && global.roomPlayers[room]) {
+              const disconnectedPlayer = global.roomPlayers[room][socket.id];
               delete global.roomPlayers[room][socket.id];
+              
               const r = global.activeRooms.find(ar => ar.id === room);
-              if (r) r.players = Object.keys(global.roomPlayers[room]).length;
+              if (r) {
+                 r.players = Object.keys(global.roomPlayers[room]).length;
+                 
+                 const isHost = disconnectedPlayer && r.hostUser === disconnectedPlayer.username;
+                 if (r.players <= 0 || isHost) {
+                    global.activeRooms = global.activeRooms.filter(ar => ar.id !== room);
+                    delete global.roomPlayers[room]; // Clean up memory
+                    io.to(room).emit('server_closed');
+                 }
+              }
            }
            io.to(room).emit('player_left', socket.id);
         }
