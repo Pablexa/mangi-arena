@@ -12,9 +12,32 @@ import { playHover, playClickConfirm } from '@/utils/sound';
 import { useUserStore } from '@/store/useUserStore';
 import { getDailyMissions } from '@/utils/missions';
 
+import { io } from 'socket.io-client';
+
 export default function DashboardPage() {
   const { user } = useUserStore();
+  const [activeTab, setActiveTab] = useState('overview');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
+  const [activeServers, setActiveServers] = useState<any[]>([]);
+
+  const fetchServers = () => {
+    fetch('/api/active-servers')
+      .then(res => res.json())
+      .then(data => setActiveServers(data))
+      .catch(console.error);
+  };
+
+  useEffect(() => {
+    fetchServers();
+    const socket = io();
+    socket.on('rooms_updated', (rooms) => {
+      setActiveServers(rooms);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
   const dailyMissions = getDailyMissions();
 
   return (
@@ -143,16 +166,14 @@ export default function DashboardPage() {
                 <h3 className="font-bold text-xl flex items-center gap-2"><Activity className="text-mangi-orange"/> Servidores Activos</h3>
                 <div className="flex gap-2">
                   <GlowButton variant="secondary" size="sm" onClick={() => setIsHostModalOpen(true)}>Crear Servidor</GlowButton>
-                  <GlowButton variant="primary" size="sm">Actualizar</GlowButton>
+                  <GlowButton variant="primary" size="sm" onClick={fetchServers}>Actualizar</GlowButton>
                 </div>
              </div>
              
              <div className="space-y-4">
-               {[
-                 { name: 'Mangi Chaos Official #1', map: 'Arena Clásica', players: '8/12', mode: 'Chaos Survival', ping: '24ms', img: 'https://images.pexels.com/photos/1633525/pexels-photo-1633525.jpeg?auto=compress&cs=tinysrgb&w=200' },
-                 { name: 'Cyber Drift 2077', map: 'Cyberpunk City', players: '11/12', mode: 'Deathmatch', ping: '38ms', img: 'https://images.pexels.com/photos/315938/pexels-photo-315938.jpeg?auto=compress&cs=tinysrgb&w=200' },
-                 { name: 'Lava Jumpers Only', map: 'Lava Volcano', players: '4/8', mode: 'Parkour', ping: '15ms', img: 'https://images.pexels.com/photos/360910/pexels-photo-360910.jpeg?auto=compress&cs=tinysrgb&w=200' },
-               ].map((server, i) => (
+               {activeServers.length === 0 ? (
+                 <p className="text-mangi-text-secondary text-sm text-center py-8">No hay servidores activos. ¡Crea uno!</p>
+               ) : activeServers.map((server: any, i: number) => (
                  <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl bg-mangi-bg-secondary/50 border border-mangi-border hover:border-mangi-orange/50 transition-colors">
                     <div className="flex items-center gap-4 mb-4 sm:mb-0">
                       <div className="w-16 h-16 rounded-lg overflow-hidden border border-zinc-700 hidden sm:block">
@@ -165,7 +186,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center gap-4 w-full sm:w-auto">
                       <div className="text-sm bg-white/5 px-3 py-1 rounded-md text-mangi-text-primary border border-mangi-border">
-                        {server.players}
+                        {server.players}/{server.maxPlayers}
                       </div>
                       <Link href="/play" className="flex-1 sm:flex-none">
                         <GlowButton variant="primary" size="sm" className="w-full">
@@ -191,6 +212,7 @@ export default function DashboardPage() {
                      <div>
                        <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Nombre del Servidor</label>
                        <input 
+                         name="roomName"
                          type="text" 
                          className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-mangi-orange transition-colors"
                          defaultValue={`${user?.username || 'Player'}'s Lobby`}
@@ -261,6 +283,7 @@ export default function DashboardPage() {
                    <div className="flex gap-4 mt-8">
                      <button onClick={() => setIsHostModalOpen(false)} className="flex-1 py-3 font-bold text-zinc-400 hover:text-white transition-colors">CANCELAR</button>
                      <GlowButton variant="mango" className="w-full py-3 flex-1" onClick={() => {
+                        const nameInput = document.querySelector('input[name="roomName"]') as HTMLInputElement;
                         const mapSelect = document.getElementById('host-map-select') as HTMLSelectElement;
                         const mapRotation = document.getElementById('host-map-rotation') as HTMLSelectElement;
                         const timeLimit = document.getElementById('host-time-limit') as HTMLSelectElement;
@@ -274,6 +297,15 @@ export default function DashboardPage() {
                           infiniteAmmo: infiniteAmmo?.checked || false,
                           gravity: parseFloat(gravity?.value || '1'),
                         }));
+
+                        const socket = io();
+                        socket.emit('create_room', {
+                          name: nameInput?.value || `${user?.username || 'Player'}'s Lobby`,
+                          map: mapSelect?.value || 'Arena Clásica',
+                          mode: 'Chaos Survival', // or grab from select if we give it an ID
+                          maxPlayers: 12
+                        });
+                        
                         window.location.href = `/play`;
                      }}>INICIAR HOST</GlowButton>
                    </div>

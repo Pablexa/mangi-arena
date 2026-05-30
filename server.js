@@ -8,8 +8,17 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
+  global.activeRooms = global.activeRooms || [];
+
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
+    
+    if (parsedUrl.pathname === '/api/active-servers') {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(global.activeRooms));
+      return;
+    }
+
     handle(req, res, parsedUrl);
   });
 
@@ -38,6 +47,26 @@ app.prepare().then(() => {
 
     socket.on('disconnect', () => {
       console.log(`[SOCKET] User disconnected: ${socket.id}`);
+      // Remove rooms hosted by this user
+      global.activeRooms = global.activeRooms.filter(r => r.hostId !== socket.id);
+      io.emit('rooms_updated', global.activeRooms);
+    });
+
+    socket.on('create_room', (roomData) => {
+      const newRoom = {
+        id: Math.random().toString(36).substring(7),
+        hostId: socket.id,
+        name: roomData.name || 'Custom Arena',
+        map: roomData.map || 'Arena Clásica',
+        mode: roomData.mode || 'Chaos Survival',
+        players: 1,
+        maxPlayers: roomData.maxPlayers || 12,
+        ping: Math.floor(Math.random() * 40) + 10 + 'ms',
+        isPrivate: roomData.isPrivate || false,
+        img: roomData.map === 'Cyberpunk City' ? 'https://images.pexels.com/photos/315938/pexels-photo-315938.jpeg?auto=compress&cs=tinysrgb&w=200' : 'https://images.pexels.com/photos/1633525/pexels-photo-1633525.jpeg?auto=compress&cs=tinysrgb&w=200'
+      };
+      global.activeRooms.push(newRoom);
+      io.emit('rooms_updated', global.activeRooms);
     });
   });
 

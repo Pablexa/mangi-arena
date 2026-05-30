@@ -17,7 +17,22 @@ export default function ServerBrowserPage() {
   const [joinPin, setJoinPin] = useState('');
   const [hostPrivacy, setHostPrivacy] = useState('Público');
   const [hostPin, setHostPin] = useState('');
-  const servers: any[] = [];
+  const [servers, setServers] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    fetch('/api/active-servers')
+      .then(res => res.json())
+      .then(data => setServers(data))
+      .catch(console.error);
+
+    const socket = require('socket.io-client').io();
+    socket.on('rooms_updated', (rooms: any[]) => {
+      setServers(rooms);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const filteredServers = servers.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
@@ -291,14 +306,24 @@ export default function ServerBrowserPage() {
                    map: mapSelect?.value || 'Arena Clásica',
                    mode: modeSelect?.value || 'Deathmatch',
                    privacy: hostPrivacy,
-                   pin: hostPin,
+                   pin: hostPrivacy === 'Privado (Con PIN)' ? hostPin : null,
                    mapRotation: mapRotation?.value || 'all',
                    timeLimit: timeLimit?.value,
                    infiniteAmmo: infiniteAmmo?.checked || false,
                    gravity: parseFloat(gravity?.value || '1'),
                  }));
+
+                 const socket = require('socket.io-client').io();
+                 socket.emit('create_room', {
+                   name: (document.querySelector('input[type="text"]') as HTMLInputElement)?.value || 'Custom Arena',
+                   map: mapSelect?.value || 'Arena Clásica',
+                   mode: modeSelect?.value || 'Deathmatch',
+                   maxPlayers: 12,
+                   isPrivate: hostPrivacy === 'Privado (Con PIN)'
+                 });
+                 
                  window.location.href = `/play`;
-              }}>INICIAR HOST</GlowButton>
+              }}>CREATE ROOM</GlowButton>
             </div>
           </motion.div>
         </div>
