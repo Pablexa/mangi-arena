@@ -19,10 +19,7 @@ export default function AdminTrollPanel() {
   const [announcementText, setAnnouncementText] = useState('');
 
   // Dummy data para mostrar
-  const activeRooms = [
-    { id: 'ROOM-123', map: 'Arena Clásica', players: 8, host: 'MangiDev' },
-    { id: 'ROOM-456', map: 'Cyberpunk City', players: 4, host: 'RocketPro' },
-  ];
+  const activeRooms: any[] = [];
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

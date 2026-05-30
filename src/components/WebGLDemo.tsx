@@ -335,7 +335,7 @@ function Meteor({ id, position, onImpact }: any) {
           try {
             const ray = new rapier.Ray({ x: hitPos.x, y: hitPos.y + 1, z: hitPos.z }, { x: 0, y: -1, z: 0 });
             const hit = world.castRay(ray, 2, true);
-            if (hit && hit.normal) normal = [hit.normal.x, hit.normal.y, hit.normal.z];
+            if (hit && (hit as any).normal) normal = [(hit as any).normal.x, (hit as any).normal.y, (hit as any).normal.z];
           } catch(err) {
             // Ignorar errores de raycast
           }

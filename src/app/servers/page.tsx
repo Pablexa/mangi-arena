@@ -17,13 +17,7 @@ export default function ServerBrowserPage() {
   const [joinPin, setJoinPin] = useState('');
   const [hostPrivacy, setHostPrivacy] = useState('Público');
   const [hostPin, setHostPin] = useState('');
-  const servers = [
-    { id: 1, name: 'MANGI Chaos Official #1', region: 'US East', players: 8, maxPlayers: 12, ping: 24, mode: 'Chaos Survival', isPrivate: false, friends: ['@nico'] },
-    { id: 2, name: 'EU Let\'s Crash', region: 'Europe', players: 11, maxPlayers: 12, ping: 38, mode: 'Chaos Survival', isPrivate: false, friends: [] },
-    { id: 3, name: 'Tournament Practice', region: 'US West', players: 4, maxPlayers: 8, ping: 45, mode: 'Team Chaos', isPrivate: true, friends: [] },
-    { id: 4, name: 'Crazy Bananas Only', region: 'SA', players: 12, maxPlayers: 12, ping: 12, mode: 'Banana Rain 24/7', isPrivate: false, friends: ['@mateo', '@valen'] },
-    { id: 5, name: 'MANGI Chaos Official #2', region: 'US East', players: 2, maxPlayers: 12, ping: 25, mode: 'Chaos Survival', isPrivate: false, friends: [] },
-  ];
+  const servers: any[] = [];
 
   const filteredServers = servers.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
