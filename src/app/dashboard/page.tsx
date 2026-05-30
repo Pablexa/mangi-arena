@@ -302,11 +302,14 @@ export default function DashboardPage() {
                         socket.emit('create_room', {
                           name: nameInput?.value || `${user?.username || 'Player'}'s Lobby`,
                           map: mapSelect?.value || 'Arena Clásica',
-                          mode: 'Chaos Survival', // or grab from select if we give it an ID
+                          mode: 'Chaos Survival',
                           maxPlayers: 12
                         });
                         
-                        window.location.href = `/play`;
+                        // Give socket time to emit before redirecting
+                        setTimeout(() => {
+                          window.location.href = `/play`;
+                        }, 500);
                      }}>INICIAR HOST</GlowButton>
                    </div>
                  </motion.div>

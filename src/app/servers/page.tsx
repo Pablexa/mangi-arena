@@ -322,7 +322,9 @@ export default function ServerBrowserPage() {
                    isPrivate: hostPrivacy === 'Privado (Con PIN)'
                  });
                  
-                 window.location.href = `/play`;
+                 setTimeout(() => {
+                   window.location.href = `/play`;
+                 }, 500);
               }}>CREATE ROOM</GlowButton>
             </div>
           </motion.div>
