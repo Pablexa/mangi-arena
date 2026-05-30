@@ -1604,10 +1604,6 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                   }
                   
                   if (hitPos) {
-                    const markerId = Date.now() + Math.random();
-                    setHitMarkers(prev => [...prev, { id: markerId, pos: hitPos, amount: Math.round(damage) }]);
-                    setTimeout(() => setHitMarkers(prev => prev.filter(m => m.id !== markerId)), 800);
-                    
                     if (user?.equippedItems?.['Explosions']) {
                        const explosionEffect = STORE_ITEMS.find(i => i.id === user.equippedItems['Explosions']);
                        if (explosionEffect) {

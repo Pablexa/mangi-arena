@@ -13,7 +13,18 @@ export default function PlayPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [selectedMap, setSelectedMap] = useState('Arena Clásica');
+  const [ping, setPing] = useState(12);
   const MAPS = ['Arena Clásica', 'Cyberpunk City', 'Lava Volcano', 'Neon Tron'];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const start = performance.now();
+      fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
+        .then(() => setPing(Math.round(performance.now() - start)))
+        .catch(() => setPing(Math.round(12 + Math.random() * 5)));
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     // Simulador de carga de Unity WebGL
@@ -91,8 +102,8 @@ export default function PlayPage() {
         {!isLoading && (
           <div className="mt-6 flex items-center justify-between w-full px-4">
              <div className="flex items-center gap-4 text-sm text-mangi-text-secondary">
-               <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-mangi-leaf animate-pulse" /> Connected to US-East</span>
-               <span>Ping: 24ms</span>
+               <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-mangi-leaf animate-pulse" /> Connected to São Paulo</span>
+               <span>Ping: {ping}ms</span>
              </div>
              <p className="text-mangi-text-muted text-xs">Press ESC to exit fullscreen</p>
           </div>
