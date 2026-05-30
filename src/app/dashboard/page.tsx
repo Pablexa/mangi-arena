@@ -305,7 +305,8 @@ export default function DashboardPage() {
                           name: nameInput?.value || `${user?.username || 'Player'}'s Lobby`,
                           map: mapSelect?.value || 'Arena Clásica',
                           mode: 'Chaos Survival',
-                          maxPlayers: 12
+                          maxPlayers: 12,
+                          hostUser: user?.username || 'Player'
                         });
                         
                         sessionStorage.setItem('currentServer', newId);

@@ -9,8 +9,10 @@ import { Search, Globe, Users, Lock, Unlock, Zap, Signal } from 'lucide-react';
 import { playHover, playClickConfirm, playNotification } from '@/utils/sound';
 import { MangiLogo } from '@/components/MangiLogo';
 import { io } from 'socket.io-client';
+import { useUserStore } from '@/store/useUserStore';
 
 export default function ServerBrowserPage() {
+  const { user } = useUserStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isHostModalOpen, setIsHostModalOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
@@ -326,7 +328,8 @@ export default function ServerBrowserPage() {
                    map: mapSelect?.value || 'Arena Clásica',
                    mode: modeSelect?.value || 'Deathmatch',
                    maxPlayers: 12,
-                   isPrivate: hostPrivacy === 'Privado (Con PIN)'
+                   isPrivate: hostPrivacy === 'Privado (Con PIN)',
+                   hostUser: user?.username || 'Player'
                  });
                  
                  sessionStorage.setItem('currentServer', newId);

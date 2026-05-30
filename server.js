@@ -51,9 +51,15 @@ app.prepare().then(() => {
     });
 
     socket.on('create_room', (roomData) => {
+      // Si el usuario ya tiene una sala creada, bórrala primero
+      if (roomData.hostUser) {
+        global.activeRooms = global.activeRooms.filter(r => r.hostUser !== roomData.hostUser);
+      }
+
       const newRoom = {
         id: roomData.id || Math.random().toString(36).substring(7),
         hostId: socket.id, // Will be obsolete after redirect, but fine for now
+        hostUser: roomData.hostUser || 'Player',
         name: roomData.name || 'Custom Arena',
         map: roomData.map || 'Arena Clásica',
         mode: roomData.mode || 'Chaos Survival',
