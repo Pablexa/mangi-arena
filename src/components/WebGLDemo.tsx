@@ -435,8 +435,9 @@ const _flatForward = new THREE.Vector3();
 const _worldUp = new THREE.Vector3(0, 1, 0);
 const _correctionAxis = new THREE.Vector3();
 
-function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboColor, activeWeapon, onShoot, cameraSystem, initialPosition = [0, 2, 0] }: any) {
-  const { scene } = useGLTF('/models/car_default.glb');
+function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColor, trailColor, turboColor, activeWeapon, onShoot, cameraSystem, initialPosition = [0, 2, 0] }: any) {
+  const modelPath = carModel === 'caldi' ? '/models/caldi.glb' : '/models/car_default.glb';
+  const { scene } = useGLTF(modelPath);
   const internalCarRef = useRef<any>(null);
   const carRef = externalCarRef || internalCarRef;
   const visualRef = useRef<any>(null);
@@ -1144,6 +1145,40 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
 
   const [deathScreen, setDeathScreen] = useState<{ killer: string, weapon: string, distance?: number } | null>(null);
 
+  const [jumpscareText, setJumpscareText] = useState('');
+  const [fakeBan, setFakeBan] = useState(false);
+  const [adminCarModel, setAdminCarModel] = useState('default');
+
+  useEffect(() => {
+    const onNetAdmin = (e: any) => {
+      const data = e.detail;
+      if (data.action === 'add_coins') {
+         updateCoins((user?.coins || 0) + data.amount);
+         // Play happy sound
+      } else if (data.action === 'remove_coins') {
+         updateCoins(Math.max(0, (user?.coins || 0) - data.amount));
+      } else if (data.action === 'fake_coins') {
+         // Show visual effect but don't actually update DB
+         const fakeEl = document.createElement('div');
+         fakeEl.innerText = `+${data.amount} FCOINS`;
+         fakeEl.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-8xl font-black text-yellow-500 z-[9999] animate-bounce drop-shadow-2xl';
+         document.body.appendChild(fakeEl);
+         setTimeout(() => fakeEl.remove(), 4000);
+      } else if (data.action === 'announcement') {
+         setJumpscareText(data.text);
+         setTimeout(() => setJumpscareText(''), 5000);
+      } else if (data.action === 'fake_ban') {
+         setFakeBan(true);
+      } else if (data.action === 'crash_client') {
+         while (true) { console.log('crash'); } // freeze the tab
+      } else if (data.action === 'set_car_model') {
+         setAdminCarModel(data.model);
+      }
+    };
+    window.addEventListener('network-admin-command', onNetAdmin);
+    return () => window.removeEventListener('network-admin-command', onNetAdmin);
+  }, [user]);
+
   useEffect(() => {
     const onNetShoot = (e: any) => {
       const { id, position, direction, velocity, speed, weapon } = e.detail;
@@ -1631,11 +1666,13 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
               myCarRef={myCarRef} 
               myUsername={user?.username || 'Player'} 
               myProfilePicture={user?.profilePicture}
+              myCarModel={adminCarModel}
               activeWeapon={activeWeapon} 
             />
             {!deathScreen && !isSpectator && !intermission && (
               <InteractiveCar 
                 externalCarRef={myCarRef}
+                carModel={adminCarModel}
                 color={equippedColor} 
                 wheelColor={user?.equippedWheelColor || '#222222'}
                 turboColor={user?.equippedTurboColor || '#22d3ee'}
@@ -2416,6 +2453,28 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           </div>
         </div>
       )}
+      {/* ADMIN TROLL OVERLAYS */}
+      {jumpscareText && (
+        <div className="absolute inset-0 pointer-events-none z-[9999] flex items-center justify-center bg-red-900/40 animate-pulse">
+          <h1 className="text-[12rem] font-black text-red-500 uppercase tracking-tighter drop-shadow-[0_0_100px_rgba(239,68,68,1)] text-center leading-none" style={{ WebkitTextStroke: '4px black' }}>
+            {jumpscareText}
+          </h1>
+        </div>
+      )}
+
+      {fakeBan && (
+        <div className="absolute inset-0 z-[10000] bg-red-600 flex flex-col items-center justify-center p-8 pointer-events-auto">
+          <ShieldAlert className="text-white w-48 h-48 mb-8" />
+          <h1 className="text-7xl font-black text-white uppercase tracking-widest mb-4">
+            BANEADO DEL SERVIDOR
+          </h1>
+          <p className="text-2xl text-red-100 font-bold mb-12">Razón: Comportamiento no permitido detectado por Administrador.</p>
+          <button onClick={() => window.location.href = '/servers'} className="bg-white text-red-600 px-8 py-4 rounded-xl font-black text-2xl uppercase hover:scale-105 transition-transform">
+            SALIR AL LOBBY
+          </button>
+        </div>
+      )}
+
     </div>
   );
 };

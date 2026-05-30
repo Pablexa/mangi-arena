@@ -178,11 +178,22 @@ app.prepare().then(() => {
     });
     socket.on('change_map', (serverId, newMap) => {
       const room = global.activeRooms.find(r => r.id === serverId);
-      if (room && room.hostUser === socket.handshake.auth?.username || room) { 
+      if (room && (room.hostUser === socket.handshake.auth?.username || room)) {
         room.map = newMap;
-        room.matchTime = 180; // Reset timer on map change
         io.to(serverId).emit('map_changed', newMap);
       }
+    });
+
+    socket.on('admin_action', (data) => {
+      // Broadcast to all clients to check if they are the target
+      io.emit('admin_command_received', data);
+    });
+
+    socket.on('get_admin_data', () => {
+      socket.emit('admin_data', {
+        rooms: global.activeRooms.map(r => ({ id: r.id, map: r.map, players: r.players })),
+        players: Object.values(global.roomPlayers || {}).flatMap(room => Object.values(room).map(p => p.username))
+      });
     });
 
   });

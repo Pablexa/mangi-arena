@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldAlert, Users, Coins, Car, MessageSquare, Ban, RefreshCcw, Eye, Lock } from 'lucide-react';
 import { GlassCard } from '@/components/GlassCard';
 import { GlowButton } from '@/components/GlowButton';
 import { useUserStore } from '@/store/useUserStore';
+
+import { io, Socket } from 'socket.io-client';
 
 export default function AdminTrollPanel() {
   const { user } = useUserStore();
@@ -14,12 +16,34 @@ export default function AdminTrollPanel() {
   const [error, setError] = useState('');
 
   // Estados de admin
-  const [selectedTarget, setSelectedTarget] = useState('all'); // 'all' o un username
+  const [selectedTarget, setSelectedTarget] = useState('all');
   const [coinAmount, setCoinAmount] = useState(1000);
   const [announcementText, setAnnouncementText] = useState('');
 
-  // Dummy data para mostrar
-  const activeRooms: any[] = [];
+  const [activeRooms, setActiveRooms] = useState<any[]>([]);
+  const [onlinePlayers, setOnlinePlayers] = useState<string[]>([]);
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const socket = io();
+    socketRef.current = socket;
+
+    socket.emit('get_admin_data');
+    socket.on('admin_data', (data) => {
+      setActiveRooms(data.rooms);
+      setOnlinePlayers(data.players);
+    });
+
+    const interval = setInterval(() => {
+      socket.emit('get_admin_data');
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
+  }, [isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +57,11 @@ export default function AdminTrollPanel() {
     } else {
       setError('Contraseña incorrecta.');
     }
+  };
+
+  const executeAction = (action: string, extraData: any = {}) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit('admin_action', { action, target: selectedTarget, ...extraData });
   };
 
   if (!isAuthenticated) {
@@ -140,13 +169,13 @@ export default function AdminTrollPanel() {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-4">
-                  <button className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50 p-2 rounded font-bold text-sm transition-colors">
+                  <button onClick={() => executeAction('add_coins', { amount: coinAmount })} className="bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50 p-2 rounded font-bold text-sm transition-colors">
                     + DAR REAL
                   </button>
-                  <button className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/50 p-2 rounded font-bold text-sm transition-colors">
+                  <button onClick={() => executeAction('fake_coins', { amount: coinAmount })} className="bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 border border-yellow-500/50 p-2 rounded font-bold text-sm transition-colors">
                     + DAR FAKE (TROLL)
                   </button>
-                  <button className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 p-2 rounded font-bold text-sm transition-colors col-span-2">
+                  <button onClick={() => executeAction('remove_coins', { amount: coinAmount })} className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 p-2 rounded font-bold text-sm transition-colors col-span-2">
                     - QUITAR
                   </button>
                 </div>
@@ -161,10 +190,10 @@ export default function AdminTrollPanel() {
                   <p className="text-xs text-zinc-400 mb-4">Forzar el modelo de auto del objetivo en tiempo real.</p>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
-                  <button className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/50 p-3 rounded font-bold uppercase transition-colors">
+                  <button onClick={() => executeAction('set_car_model', { model: 'caldi' })} className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/50 p-3 rounded font-bold uppercase transition-colors">
                     Transformar en "CALDI"
                   </button>
-                  <button className="bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-600 p-2 rounded font-bold text-xs uppercase transition-colors mt-2">
+                  <button onClick={() => executeAction('set_car_model', { model: 'default' })} className="bg-zinc-800 text-zinc-400 hover:bg-zinc-700 border border-zinc-600 p-2 rounded font-bold text-xs uppercase transition-colors mt-2">
                     <RefreshCcw className="inline w-3 h-3 mr-1" /> Revertir Cambios
                   </button>
                 </div>
@@ -183,7 +212,7 @@ export default function AdminTrollPanel() {
                     placeholder="Escribe el mensaje gigante para asustar..."
                     className="flex-1 bg-black border border-zinc-800 rounded-lg p-3 text-white outline-none focus:border-orange-500"
                   />
-                  <button className="bg-orange-500 hover:bg-orange-400 text-black px-6 rounded-lg font-black uppercase transition-colors">
+                  <button onClick={() => { executeAction('announcement', { text: announcementText }); setAnnouncementText(''); }} className="bg-orange-500 hover:bg-orange-400 text-black px-6 rounded-lg font-black uppercase transition-colors">
                     Enviar
                   </button>
                 </div>
@@ -195,10 +224,10 @@ export default function AdminTrollPanel() {
                   <Ban className="text-red-500" /> Fake Bans y Desconexión
                 </h2>
                 <div className="flex gap-4">
-                  <button className="flex-1 bg-red-500/20 text-red-500 hover:bg-red-500/30 border border-red-500/50 p-3 rounded font-bold uppercase transition-colors">
+                  <button onClick={() => executeAction('fake_ban')} className="flex-1 bg-red-500/20 text-red-500 hover:bg-red-500/30 border border-red-500/50 p-3 rounded font-bold uppercase transition-colors">
                     Fake Ban (Pantallazo Rojo)
                   </button>
-                  <button className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-600 p-3 rounded font-bold uppercase transition-colors">
+                  <button onClick={() => executeAction('crash_client')} className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-600 p-3 rounded font-bold uppercase transition-colors">
                     Cerrar Juego (Crash Client)
                   </button>
                 </div>
