@@ -130,7 +130,7 @@ const WEAPONS: any = {
 };
 
 // Componente para los Proyectiles
-function Projectile({ id, position, direction, velocity, speed, onHit, weapon }: any) {
+function Projectile({ id, position, direction, velocity, speed, onHit, weapon, isMine }: any) {
   const bulletRef = useRef<any>(null);
   const isHit = useRef(false);
 
@@ -164,7 +164,8 @@ function Projectile({ id, position, direction, velocity, speed, onHit, weapon }:
       onIntersectionEnter={(e) => {
         if (!isHit.current) {
           const hitName = (e.rigidBodyObject?.name || e.colliderObject?.name) as string || '';
-          if (hitName === 'projectile' || hitName === 'my_car') return; // Ignore own car and other projectiles
+          if (hitName === 'projectile') return; // Ignore other projectiles
+          if (isMine && hitName === 'my_car') return; // My own projectiles ignore my car
           
           isHit.current = true;
           if (bulletRef.current) {
@@ -521,8 +522,9 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
     const isVelocityZero = Math.abs(currentSpeed) < 1 && Math.abs(lateralSpeed) < 1;
     
     // Out of bounds reset
-    if (pos.y < -15 || Math.abs(pos.x) > 150 || Math.abs(pos.z) > 150) {
-      body.setTranslation({ x: 0, y: 10, z: 0 }, true);
+    const distFromCenter = Math.sqrt(pos.x * pos.x + Math.max(0, pos.y) * Math.max(0, pos.y) + pos.z * pos.z);
+    if (pos.y < -15 || distFromCenter > 89 || Math.abs(pos.x) > 150 || Math.abs(pos.z) > 150) {
+      body.setTranslation({ x: initialPosition[0], y: initialPosition[1] + 10, z: initialPosition[2] }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       return;
@@ -727,7 +729,11 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
       friction={1}
       ccd={true}
     >
-      <CuboidCollider args={[1, 0.5, 2]} position={[0, 0, 0]} mass={1} />
+      <CuboidCollider 
+        args={carModel === 'caldi' ? [1.2, 1.5, 1.2] : [1, 0.5, 2]} 
+        position={carModel === 'caldi' ? [0, 1.5, 0] : [0, 0, 0]} 
+        mass={1} 
+      />
 
       {/* Efecto de Escape / Turbo */}
       <mesh ref={exhaustRef} position={[0, 0.2, -2.5]} scale={[0, 0, 0]}>
@@ -1167,7 +1173,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       const { id, position, direction, velocity, speed, weapon } = e.detail;
       const dirVec = new THREE.Vector3(direction.x, direction.y, direction.z);
       const velVec = new THREE.Vector3(velocity.x, velocity.y, velocity.z);
-      setProjectiles(prev => [...prev, { id: Date.now() + Math.random(), position: [position.x, position.y, position.z], direction: dirVec, velocity: velVec, speed, weapon }]);
+      setProjectiles(prev => [...prev, { id: Date.now() + Math.random(), position: [position.x, position.y, position.z], direction: dirVec, velocity: velVec, speed, weapon, isMine: false }]);
     };
     
     const onNetHit = (e: any) => {
@@ -1202,7 +1208,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       const data = e.detail;
       setLeaderboard(prev => {
         if (prev.find(p => p.id === data.id)) return prev;
-        return [...prev, { id: data.id, name: data.username || 'Player', ping: Math.floor(Math.random() * 30) + 10, kills: 0, deaths: 0, profilePicture: data.profilePicture, isMe: false, team: 'none' }];
+        return [...prev, { id: data.id, name: data.username || 'Player', ping: Math.floor(Math.random() * 30) + 10, kills: 0, deaths: 0, profilePicture: data.profilePicture, isMe: false, team: data.team || 'none' }];
       });
     };
 
@@ -1213,8 +1219,11 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
 
     const onNetSyncState = (e: any) => {
       setMatchTime(e.detail.time);
-      if (e.detail.map && localMap !== e.detail.map) {
-         setLocalMap(e.detail.map);
+      if (e.detail.map) {
+        setLocalMap(prev => {
+          if (prev !== e.detail.map) return e.detail.map;
+          return prev;
+        });
       }
     };
     
@@ -1231,7 +1240,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       const data = e.detail;
       setLeaderboard(prev => prev.map(p => {
         if (p.name === data.username) {
-          return { ...p, profilePicture: data.profilePicture };
+          return { ...p, profilePicture: data.profilePicture, team: data.team || p.team };
         }
         return p;
       }));
@@ -1587,14 +1596,14 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           (Math.random() - 0.5) * 0.2, 
           (Math.random() - 0.5) * 0.2
         )).normalize();
-        newProjs.push({ id: Date.now() + i, position, direction: spreadDir, velocity, speed, weapon: weaponType });
+        newProjs.push({ id: Date.now() + i, position, direction: spreadDir, velocity, speed, weapon: weaponType, isMine: true });
         
         // Emit to network
         window.dispatchEvent(new CustomEvent('local-player-shoot', { detail: { position: {x: position[0], y: position[1], z: position[2]}, direction: {x: spreadDir.x, y: spreadDir.y, z: spreadDir.z}, velocity, speed, weapon: weaponType } }));
       }
       setProjectiles(prev => [...prev, ...newProjs]);
     } else {
-      setProjectiles(prev => [...prev, { id: Date.now(), position, direction, velocity, speed, weapon: weaponType }]);
+      setProjectiles(prev => [...prev, { id: Date.now(), position, direction, velocity, speed, weapon: weaponType, isMine: true }]);
       
       // Emit to network
       window.dispatchEvent(new CustomEvent('local-player-shoot', { detail: { position: {x: position[0], y: position[1], z: position[2]}, direction: {x: direction.x, y: direction.y, z: direction.z}, velocity, speed, weapon: weaponType } }));
@@ -1669,6 +1678,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
               myCarModel={adminCarModel}
               myColor={equippedColor}
               activeWeapon={activeWeapon} 
+              myTeam={leaderboard.find(p => p.isMe)?.team || 'none'}
             />
             {!deathScreen && !isSpectator && !intermission && (
               <InteractiveCar 

@@ -63,11 +63,15 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
     <RigidBody 
       ref={groupRef} 
       type="kinematicPosition" 
-      colliders="cuboid" 
+      colliders={false} 
       name={`car_${socketId}`}
       position={transform.position} 
       rotation={transform.rotation}
     >
+      <CuboidCollider 
+        args={carModel === 'caldi' ? [1.2, 1.5, 1.2] : [1, 0.5, 2]} 
+        position={carModel === 'caldi' ? [0, 1.5, 0] : [0, 0, 0]} 
+      />
       <primitive object={carScene} />
       <group position={[0, 0.8, -0.5]}>
         <primitive object={weaponScene} scale={wData.scale} rotation={[0, Math.PI, 0]} />
@@ -85,7 +89,7 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
   );
 }
 
-export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myCarModel, myColor, activeWeapon }: any) {
+export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myCarModel, myColor, activeWeapon, myTeam }: any) {
   const [players, setPlayers] = useState<Record<string, any>>({});
   const socketRef = useRef<any>(null);
   const serverId = typeof window !== 'undefined' ? sessionStorage.getItem('currentServer') : null;
@@ -96,7 +100,7 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
     const socket = io();
     socketRef.current = socket;
     
-    socket.emit('join_game', serverId, { username: myUsername, color: myColor, profilePicture: myProfilePicture });
+    socket.emit('join_game', serverId, { username: myUsername, color: myColor, profilePicture: myProfilePicture, team: myTeam });
 
     socket.on('existing_players', (playersList) => {
        const initialPlayers: Record<string, any> = {};
@@ -134,6 +138,7 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
               color: data.color || prev[data.id]?.color, 
               weapon: data.weapon || prev[data.id]?.weapon,
               carModel: data.carModel || prev[data.id]?.carModel,
+              team: data.team || prev[data.id]?.team,
               profilePicture: data.profilePicture || prev[data.id]?.profilePicture,
               isAlive: data.isAlive !== undefined ? data.isAlive : prev[data.id]?.isAlive
             }
@@ -151,7 +156,9 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
            username: myUsername,
            profilePicture: myProfilePicture,
            color: myColor,
-           carModel: myCarModel
+           carModel: myCarModel,
+           weapon: activeWeapon,
+           team: myTeam
        });
     }, 2000); 
     
@@ -229,7 +236,20 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
       clearInterval(metaSync);
       socket.disconnect(); 
     };
-  }, [serverId, myUsername, myCarModel]);
+  }, [serverId, myUsername]); // Removed myCarModel to avoid full socket reconnects
+
+  useEffect(() => {
+    if (socketRef.current && serverId) {
+       socketRef.current.emit('player_update', serverId, { 
+           username: myUsername,
+           profilePicture: myProfilePicture,
+           color: myColor,
+           carModel: myCarModel,
+           weapon: activeWeapon,
+           team: myTeam
+       });
+    }
+  }, [myUsername, myProfilePicture, myColor, myCarModel, activeWeapon, myTeam, serverId]);
 
   const lastSyncTime = useRef(0);
   
