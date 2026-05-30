@@ -39,22 +39,22 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
   const groupRef = useRef<any>(null);
   const targetPos = useRef(new THREE.Vector3());
   const targetQuat = useRef(new THREE.Quaternion());
+  const _currentPos = useRef(new THREE.Vector3());
+  const _currentQuat = useRef(new THREE.Quaternion());
   
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    // Update target vectors from transform
     targetPos.current.set(...transform.position as [number, number, number]);
     targetQuat.current.set(...transform.rotation as [number, number, number, number]);
 
-    // Interpolate position and rotation to smooth out 30FPS ticks
     const currentPos = groupRef.current.translation();
     const currentQuat = groupRef.current.rotation();
     
-    const nextPos = new THREE.Vector3(currentPos.x, currentPos.y, currentPos.z).lerp(targetPos.current, 10 * delta);
-    const nextQuat = new THREE.Quaternion(currentQuat.x, currentQuat.y, currentQuat.z, currentQuat.w).slerp(targetQuat.current, 10 * delta);
+    _currentPos.current.set(currentPos.x, currentPos.y, currentPos.z).lerp(targetPos.current, 10 * delta);
+    _currentQuat.current.set(currentQuat.x, currentQuat.y, currentQuat.z, currentQuat.w).slerp(targetQuat.current, 10 * delta);
     
-    groupRef.current.setNextKinematicTranslation(nextPos);
-    groupRef.current.setNextKinematicRotation(nextQuat);
+    groupRef.current.setNextKinematicTranslation(_currentPos.current);
+    groupRef.current.setNextKinematicRotation(_currentQuat.current);
   });
 
   return (
@@ -83,10 +83,11 @@ function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon =
   );
 }
 
-export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
+export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, activeWeapon }: any) {
   const [players, setPlayers] = useState<Record<string, any>>({});
-  const socketRef = useRef<Socket | null>(null);
+  const socketRef = useRef<any>(null);
   const serverId = typeof window !== 'undefined' ? sessionStorage.getItem('currentServer') : null;
+  const myColor = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('mangi-user-storage') || '{}')?.state?.user?.equippedColor || '#22d3ee') : '#22d3ee';
 
   useEffect(() => {
     if (!serverId) return;
@@ -94,14 +95,7 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
     const socket = io();
     socketRef.current = socket;
     
-    // When joining, send equipped color
-    const userStore = localStorage.getItem('user-storage');
-    let myColor = '#ffffff';
-    if (userStore) {
-       try { myColor = JSON.parse(userStore).state.user.equippedColor; } catch(e){}
-    }
-
-    socket.emit('join_game', serverId, { username: myUsername, color: myColor });
+    socket.emit('join_game', serverId, { username: myUsername, color: myColor, profilePicture: myProfilePicture });
 
     socket.on('existing_players', (playersList) => {
        const initialPlayers: Record<string, any> = {};
@@ -170,23 +164,23 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
     const handleLocalHit = (e: any) => {
        socket.emit('player_hit', serverId, { shooter: myUsername, ...e.detail });
     };
-    const handleLocalDeath = (e: any) => {
+    const handleLocalKilled = (e: any) => {
        socket.emit('player_killed', serverId, { victim: myUsername, ...e.detail });
     };
-    const handleMapChangeRequest = (e: any) => {
+    const handleMapChange = (e: any) => {
        socket.emit('change_map', serverId, e.detail);
     };
     
     window.addEventListener('local-player-shoot', handleLocalShoot);
     window.addEventListener('local-player-hit', handleLocalHit);
-    window.addEventListener('local-player-died', handleLocalDeath);
-    window.addEventListener('request-map-change', handleMapChangeRequest);
+    window.addEventListener('local-player-died', handleLocalKilled);
+    window.addEventListener('request-map-change', handleMapChange);
 
     return () => { 
       window.removeEventListener('local-player-shoot', handleLocalShoot);
       window.removeEventListener('local-player-hit', handleLocalHit);
-      window.removeEventListener('local-player-died', handleLocalDeath);
-      window.removeEventListener('request-map-change', handleMapChangeRequest);
+      window.removeEventListener('local-player-died', handleLocalKilled);
+      window.removeEventListener('request-map-change', handleMapChange);
       socket.disconnect(); 
     };
   }, [serverId, myUsername]);
@@ -199,14 +193,19 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
     // Throttle updates to ~60 FPS for maximum smoothness
     if (state.clock.elapsedTime - lastSyncTime.current > 1/60) {
       if (myCarRef.current) {
-        const t = myCarRef.current.translation();
-        const r = myCarRef.current.rotation();
-        // Read active weapon from props
-        socketRef.current.emit('player_update', serverId, { 
-          transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] },
-          weapon: activeWeapon,
-          isAlive: true
-        });
+        try {
+          const t = myCarRef.current.translation();
+          const r = myCarRef.current.rotation();
+          // Read active weapon from props
+          socketRef.current.emit('player_update', serverId, { 
+            transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] },
+            weapon: activeWeapon,
+            isAlive: true
+          });
+        } catch (e) {
+          // Physics body destroyed, emit dead
+          socketRef.current.emit('player_update', serverId, { isAlive: false });
+        }
       } else {
         socketRef.current.emit('player_update', serverId, { isAlive: false });
       }

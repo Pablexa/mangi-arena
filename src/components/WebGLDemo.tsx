@@ -422,6 +422,19 @@ function CinematicCamera() {
   return null;
 }
 
+const _quat = new THREE.Quaternion();
+const _forward = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _vel = new THREE.Vector3();
+const _carPos = new THREE.Vector3();
+const _idealCamPos = new THREE.Vector3();
+const _camOffset = new THREE.Vector3();
+const _camDir = new THREE.Vector3();
+const _flatForward = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
+const _correctionAxis = new THREE.Vector3();
+
 function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboColor, activeWeapon, onShoot, cameraSystem, initialPosition = [0, 2, 0] }: any) {
   const { scene } = useGLTF('/models/car_default.glb');
   const internalCarRef = useRef<any>(null);
@@ -519,16 +532,17 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
     const rot = body.rotation();
     const vel = body.linvel();
     
-    const quaternion = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);
-    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(quaternion).normalize();
-    const right = new THREE.Vector3(-1, 0, 0).applyQuaternion(quaternion).normalize();
-    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion).normalize();
+    _quat.set(rot.x, rot.y, rot.z, rot.w);
+    _forward.set(0, 0, 1).applyQuaternion(_quat).normalize();
+    _right.set(-1, 0, 0).applyQuaternion(_quat).normalize();
+    _up.set(0, 1, 0).applyQuaternion(_quat).normalize();
+    _vel.set(vel.x, vel.y, vel.z);
 
-    const currentSpeed = new THREE.Vector3(vel.x, vel.y, vel.z).dot(forward);
-    const lateralSpeed = new THREE.Vector3(vel.x, vel.y, vel.z).dot(right);
+    const currentSpeed = _vel.dot(_forward);
+    const lateralSpeed = _vel.dot(_right);
 
     const isTryingToMove = controls.forward || controls.backward || controls.turbo;
-    const isUpsideDown = up.y < 0.3;
+    const isUpsideDown = _up.y < 0.3;
     const isVelocityZero = Math.abs(currentSpeed) < 1 && Math.abs(lateralSpeed) < 1;
     
     // Auto-Volteo Automático (0.5s boca abajo y quieto)
@@ -550,9 +564,9 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
         // Empuje fuerte en la dirección opuesta a donde queremos ir para desatascarnos
         const escapeDir = controls.forward ? -1 : 1; 
         body.applyImpulse({ 
-          x: forward.x * 40 * escapeDir, 
+          x: _forward.x * 40 * escapeDir, 
           y: 6, 
-          z: forward.z * 40 * escapeDir 
+          z: _forward.z * 40 * escapeDir 
         }, true);
         isStuckTimer.current = 0;
       }
@@ -595,17 +609,17 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
       if (isTurboing && !isGrounded) {
         // En el aire con turbo: Permitir impulso en 3D para volar libremente (Airfly)
         body.applyImpulse({ 
-          x: forward.x * engineForce * delta, 
-          y: forward.y * engineForce * delta, 
-          z: forward.z * engineForce * delta 
+          x: _forward.x * engineForce * delta, 
+          y: _forward.y * engineForce * delta, 
+          z: _forward.z * engineForce * delta 
         }, true);
       } else {
         // En el suelo: Proyectar impulso en el plano XZ para no volar por error al acelerar
-        const flatForward = new THREE.Vector3(forward.x, 0, forward.z).normalize();
+        _flatForward.set(_forward.x, 0, _forward.z).normalize();
         body.applyImpulse({ 
-          x: flatForward.x * engineForce * delta, 
+          x: _flatForward.x * engineForce * delta, 
           y: 0, 
-          z: flatForward.z * engineForce * delta 
+          z: _flatForward.z * engineForce * delta 
         }, true);
       }
     }
@@ -617,85 +631,68 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
         lastJumpTime.current = now;
         body.applyImpulse({ x: 0, y: JUMP_FORCE, z: 0 }, true);
         
-        // El salto original: solo permitía roles laterales iniciales (como en Rocket League al presionar doble X),
-        // y dejaba que S y W operaran puramente en la función de vuelo (Airfly) continua.
         if (controls.left) body.applyTorqueImpulse({ x: 0, y: 0, z: -1.5 }, true); 
         if (controls.right) body.applyTorqueImpulse({ x: 0, y: 0, z: 1.5 }, true);
       }
     }
 
     // 3. AIR CONTROL & DIRECCIÓN
-
-    // DIRECCIÓN UNIVERSAL (Funciona en suelo y en aire igual de bien)
-    // Usamos > 0.5 para impedir que des vueltas 360 cuando estás completamente quieto (tank controls)
-    // Pero si aceleras o usas turbo, girar vuelve a ser tan fácil como antes
     if (Math.abs(currentSpeed) > 0.5 || isTurboing) { 
       const turnMultiplier = -1; 
       
       let turnForce = 0;
-      // Usar sensibilidad separada para piso y aire
       const currentTurnSens = isGrounded ? globalSettings.turnSens : globalSettings.airTurnSens;
       const activeTurnSpeed = (isTurboing ? TURN_SPEED * 1.5 : TURN_SPEED) * currentTurnSens;
       
       if (controls.left) turnForce = -activeTurnSpeed;
       if (controls.right) turnForce = activeTurnSpeed;
 
-      // Invertir controles al ir en reversa
-      if (currentSpeed < -0.5) {
-        turnForce = -turnForce;
-      }
+      if (currentSpeed < -0.5) turnForce = -turnForce;
 
       if (turnForce !== 0) {
         body.applyTorqueImpulse({ 
-          x: up.x * turnForce * turnMultiplier * delta, 
-          y: up.y * turnForce * turnMultiplier * delta, 
-          z: up.z * turnForce * turnMultiplier * delta 
+          x: _up.x * turnForce * turnMultiplier * delta, 
+          y: _up.y * turnForce * turnMultiplier * delta, 
+          z: _up.z * turnForce * turnMultiplier * delta 
         }, true);
       }
     }
 
-    // CONTROLES AÉREOS EXTRAS (Solo Pitch para saltos)
     if (!isGrounded) {
-      // Base PITCH_FORCE reducida a la mitad (7.5) para que no sea tan brusco
       const PITCH_FORCE = 7.5 * globalSettings.airSens * delta;
-      
       if (controls.backward) {
-        // Pitch Up
-        body.applyTorqueImpulse({ x: right.x * PITCH_FORCE, y: right.y * PITCH_FORCE, z: right.z * PITCH_FORCE }, true);
+        body.applyTorqueImpulse({ x: _right.x * PITCH_FORCE, y: _right.y * PITCH_FORCE, z: _right.z * PITCH_FORCE }, true);
       }
     }
 
     // 4. FRICCIÓN LATERAL
     if (Math.abs(lateralSpeed) > 0.1 && pos.y < 1.5) {
       body.applyImpulse({
-        x: -right.x * lateralSpeed * LATERAL_FRICTION * delta,
-        y: -right.y * lateralSpeed * LATERAL_FRICTION * delta,
-        z: -right.z * lateralSpeed * LATERAL_FRICTION * delta
+        x: -_right.x * lateralSpeed * LATERAL_FRICTION * delta,
+        y: -_right.y * lateralSpeed * LATERAL_FRICTION * delta,
+        z: -_right.z * lateralSpeed * LATERAL_FRICTION * delta
       }, true);
     }
 
-    // 5. ESTABILIZADOR (Solo funciona si estás en el piso o cayendo libremente sin presionar botones de giro)
+    // 5. ESTABILIZADOR
     const isAirControlling = !isGrounded && (controls.backward || controls.forward || controls.left || controls.right);
     
     if (!isAirControlling) {
-      const worldUp = new THREE.Vector3(0, 1, 0);
-      const angleToUp = up.angleTo(worldUp);
+      const angleToUp = _up.angleTo(_worldUp);
       if (angleToUp > 0.05) {
-        const correctionAxis = new THREE.Vector3().crossVectors(up, worldUp);
-        if (correctionAxis.lengthSq() > 0.001) {
-          correctionAxis.normalize();
-          // Fuerza fuerte en el piso, fuerza débil en el aire para enderezarte
+        _correctionAxis.crossVectors(_up, _worldUp);
+        if (_correctionAxis.lengthSq() > 0.001) {
+          _correctionAxis.normalize();
           const correctionForce = angleToUp * (isGrounded ? 10 : 2) * delta; 
           body.applyTorqueImpulse({
-            x: correctionAxis.x * correctionForce,
-            y: correctionAxis.y * correctionForce,
-            z: correctionAxis.z * correctionForce
+            x: _correctionAxis.x * correctionForce,
+            y: _correctionAxis.y * correctionForce,
+            z: _correctionAxis.z * correctionForce
           }, true);
         }
       }
     }
     
-    // Fricciones
     if (controls.brake) {
       body.setLinearDamping(4);
     } else if (engineForce === 0) {
@@ -705,42 +702,36 @@ function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboCo
     }
     body.setAngularDamping(3.5);
 
-    // CÁMARA (Con detección de paredes)
-    let idealCameraPos = new THREE.Vector3();
-    const carPosition = new THREE.Vector3(pos.x, pos.y, pos.z);
-    globalPlayerPos.copy(carPosition); // Actualizar tracker global
+    // CÁMARA
+    _carPos.set(pos.x, pos.y, pos.z);
+    globalPlayerPos.copy(_carPos); 
     
     if (cameraSystem === 'chase') {
-      const cameraOffset = new THREE.Vector3(0, 3, -7).applyQuaternion(quaternion);
-      idealCameraPos.copy(carPosition).add(cameraOffset);
+      _camOffset.set(0, 3, -7).applyQuaternion(_quat);
+      _idealCamPos.copy(_carPos).add(_camOffset);
     } else if (cameraSystem === 'free') {
       const { azimuth, polar, distance } = globalCameraState;
       const x = Math.sin(polar) * Math.sin(azimuth) * distance;
       const y = Math.cos(polar) * distance;
       const z = Math.sin(polar) * Math.cos(azimuth) * distance;
-      idealCameraPos.copy(carPosition).add(new THREE.Vector3(x, 1 + y, z));
+      _idealCamPos.copy(_carPos).add(_camOffset.set(x, 1 + y, z));
     }
     
-    // Evitar que la cámara atraviese el piso y cause pantallazos negros con el post-procesado
-    idealCameraPos.y = Math.max(0.5, idealCameraPos.y);
+    _idealCamPos.y = Math.max(0.5, _idealCamPos.y);
     
-    // RAYCAST PARA COLISIONES DE CÁMARA (Fortnite style)
-    const cameraDirection = new THREE.Vector3().subVectors(idealCameraPos, carPosition).normalize();
-    const maxDistance = idealCameraPos.distanceTo(carPosition);
+    _camDir.subVectors(_idealCamPos, _carPos).normalize();
+    const maxDistance = _idealCamPos.distanceTo(_carPos);
     
-    const ray = new rapier.Ray(carPosition, cameraDirection);
-    // Cast ray to check for walls between car and camera
+    const ray = new rapier.Ray(_carPos, _camDir);
     const hit = world.castRay(ray, maxDistance, true, undefined, undefined, undefined, carRef.current);
     
     if (hit && hit.toi < maxDistance) {
-      // Zoom in to avoid clipping into the wall
-      idealCameraPos.copy(carPosition).add(cameraDirection.multiplyScalar(Math.max(1.5, hit.toi - 0.5)));
+      _idealCamPos.copy(_carPos).add(_camDir.multiplyScalar(Math.max(1.5, hit.toi - 0.5)));
     }
-    // Si hay un pico de lag (ej. al spawnear un meteorito), delta sube mucho
-    // limitamos el factor de lerp a 1 para que la cámara no tiemble ni sobrepase la posición.
+    
     const lerpFactor = Math.min((30 * delta) * globalSettings.cameraSens, 1);
-    state.camera.position.lerp(idealCameraPos, lerpFactor);  
-    state.camera.lookAt(carPosition.x, carPosition.y + 1, carPosition.z);
+    state.camera.position.lerp(_idealCamPos, lerpFactor);  
+    state.camera.lookAt(_carPos.x, _carPos.y + 1, _carPos.z);
   });
 
   return (
@@ -1193,7 +1184,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       const data = e.detail;
       setLeaderboard(prev => {
         if (prev.find(p => p.id === data.id)) return prev;
-        return [...prev, { id: data.id, name: data.username || 'Player', ping: Math.floor(Math.random() * 30) + 10, kills: 0, deaths: 0, profilePicture: undefined, isMe: false, team: 'none' }];
+        return [...prev, { id: data.id, name: data.username || 'Player', ping: Math.floor(Math.random() * 30) + 10, kills: 0, deaths: 0, profilePicture: data.profilePicture, isMe: false, team: 'none' }];
       });
     };
 
@@ -1636,7 +1627,12 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           <Preload all />
           <Physics timeStep="vary" gravity={[0, -9.81 * hostSettings.gravity, 0]}>
             <MaterialPreloader />
-            <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} activeWeapon={activeWeapon} />
+            <MultiplayerManager 
+              myCarRef={myCarRef} 
+              myUsername={user?.username || 'Player'} 
+              myProfilePicture={user?.profilePicture}
+              activeWeapon={activeWeapon} 
+            />
             {!deathScreen && !isSpectator && !intermission && (
               <InteractiveCar 
                 externalCarRef={myCarRef}
@@ -1804,19 +1800,30 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
 
       {/* Kill Feed (Con Animaciones) */}
       <div className="absolute top-8 right-8 pointer-events-none flex flex-col items-end gap-2">
-        {killFeed.map((kill, i) => (
-          <div 
-            key={kill.id} 
-            className="bg-gradient-to-r from-transparent to-black/80 backdrop-blur-sm px-6 py-2 rounded-l-full border-r-4 border-mangi-orange flex items-center gap-4 animate-fade-in-right shadow-2xl transition-all duration-300 transform scale-100 hover:scale-105"
-          >
-            <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{kill.killer}</span>
-            <span className="text-zinc-400 text-[10px] uppercase tracking-widest flex items-center gap-2 bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
-              {kill.weapon}
-              {kill.distance && <span className="text-cyan-400 font-mono">({kill.distance}m)</span>}
-            </span>
-            <span className="text-mangi-orange font-black text-lg drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]">{kill.victim}</span>
-          </div>
-        ))}
+        {killFeed.map((kill, i) => {
+          const killerData = leaderboard.find(p => p.name === kill.killer);
+          const victimData = leaderboard.find(p => p.name === kill.victim);
+          
+          return (
+            <div 
+              key={kill.id} 
+              className="bg-gradient-to-r from-transparent to-black/80 backdrop-blur-sm px-6 py-2 rounded-l-full border-r-4 border-mangi-orange flex items-center gap-4 animate-fade-in-right shadow-2xl transition-all duration-300 transform scale-100 hover:scale-105"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-white font-bold text-sm shadow-black drop-shadow-md">{kill.killer}</span>
+                <img src={killerData?.profilePicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${kill.killer}`} alt={kill.killer} className="w-6 h-6 rounded border border-zinc-700" />
+              </div>
+              <span className="text-zinc-400 text-[10px] uppercase tracking-widest flex items-center gap-2 bg-black/40 px-2 py-0.5 rounded-full border border-white/5">
+                {kill.weapon}
+                {kill.distance && <span className="text-cyan-400 font-mono">({kill.distance}m)</span>}
+              </span>
+              <div className="flex items-center gap-2">
+                <img src={victimData?.profilePicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${kill.victim}`} alt={kill.victim} className="w-6 h-6 rounded border border-zinc-700" />
+                <span className="text-mangi-orange font-black text-lg drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]">{kill.victim}</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Vehículo Estancado UI (Opacidad controlada por JS nativo) */}
@@ -1914,8 +1921,17 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                   }}
                   className={`group relative overflow-hidden rounded-2xl border-4 transition-all ${hasVoted ? 'opacity-50 cursor-not-allowed border-zinc-800' : 'cursor-pointer border-zinc-800 hover:border-mangi-orange hover:scale-105'}`}
                 >
-                  <div className="w-64 h-40 bg-zinc-900 flex items-center justify-center">
-                    <span className="text-zinc-600 font-black text-xl group-hover:text-mangi-orange transition-colors">IMG Placeholder</span>
+                  <div className="w-64 h-40 bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+                    <img 
+                      src={{
+                        'Arena Clásica': 'https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?w=500&q=80',
+                        'Cyberpunk City': 'https://images.unsplash.com/photo-1605806616949-1e87b487cb2a?w=500&q=80',
+                        'Lava Volcano': 'https://images.unsplash.com/photo-1610471257912-709ea912eb89?w=500&q=80',
+                        'Neon Tron': 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=500&q=80'
+                      }[mapName]} 
+                      alt={mapName}
+                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                    />
                   </div>
                   <div className="absolute bottom-0 w-full bg-black/90 py-3 text-center">
                     <h3 className="text-white font-black uppercase text-lg">{mapName}</h3>
