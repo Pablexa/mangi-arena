@@ -56,6 +56,7 @@ export default function ServerBrowserPage() {
   const handleJoin = (server: any) => {
     playNotification();
     sessionStorage.setItem('currentServer', server.id);
+    sessionStorage.setItem('isHost', 'false');
     window.location.href = '/play';
   };
 
@@ -333,6 +334,7 @@ export default function ServerBrowserPage() {
                  });
                  
                  sessionStorage.setItem('currentServer', newId);
+                 sessionStorage.setItem('isHost', 'true');
                  
                  setTimeout(() => {
                    window.location.href = `/play`;

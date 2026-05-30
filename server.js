@@ -156,7 +156,28 @@ app.prepare().then(() => {
       global.activeRooms.push(newRoom);
       io.emit('rooms_updated', global.activeRooms);
     });
+    socket.on('change_map', (serverId, newMap) => {
+      const room = global.activeRooms.find(r => r.id === serverId);
+      if (room && room.hostUser === socket.handshake.auth?.username || room) { 
+        room.map = newMap;
+        room.matchTime = 180; // Reset timer on map change
+        io.to(serverId).emit('map_changed', newMap);
+      }
+    });
+
   });
+
+  // Global Room Sync Loop (Time & State)
+  setInterval(() => {
+    global.activeRooms.forEach(room => {
+      if (room.matchTime === undefined) room.matchTime = 180;
+      if (room.players > 0) {
+        if (room.matchTime > 0) room.matchTime--;
+        else room.matchTime = 180; // Simple auto-restart for now
+        io.to(room.id).emit('sync_state', { time: room.matchTime, map: room.map });
+      }
+    });
+  }, 1000);
 
   const PORT = process.env.PORT || 3000;
   

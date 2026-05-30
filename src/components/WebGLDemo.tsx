@@ -1182,13 +1182,28 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       setTimeout(() => setKillFeed(current => current.filter(k => k.id !== killId)), 7000);
     };
 
+    const onNetSyncState = (e: any) => {
+      setMatchTime(e.detail.time);
+      if (e.detail.map && localMap !== e.detail.map) {
+         setLocalMap(e.detail.map);
+      }
+    };
+    
+    const onNetMapChanged = (e: any) => {
+      setLocalMap(e.detail);
+    };
+
     window.addEventListener('network-player-shoot', onNetShoot);
     window.addEventListener('network-player-hit', onNetHit);
     window.addEventListener('network-player-killed', onNetKilled);
+    window.addEventListener('network-sync-state', onNetSyncState);
+    window.addEventListener('network-map-changed', onNetMapChanged);
     return () => {
       window.removeEventListener('network-player-shoot', onNetShoot);
       window.removeEventListener('network-player-hit', onNetHit);
       window.removeEventListener('network-player-killed', onNetKilled);
+      window.removeEventListener('network-sync-state', onNetSyncState);
+      window.removeEventListener('network-map-changed', onNetMapChanged);
     };
   }, [user?.username, deathScreen]);
 
@@ -1253,13 +1268,10 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
     return () => window.removeEventListener('keydown', handleM);
   }, [isSpectator, intermission, deathScreen]);
 
-  // Match Time Timer
+  // End of match handling
   useEffect(() => {
     if (hostSettings.infiniteTime) return;
-    if (matchTime > 0 && !intermission) {
-      const timer = setInterval(() => setMatchTime(t => t - 1), 1000);
-      return () => clearInterval(timer);
-    } else if (matchTime <= 0 && !intermission) {
+    if (matchTime <= 0 && !intermission) {
       setIntermission(true);
       
       const finalLeaderboard = [...leaderboard].sort((a, b) => b.kills - a.kills);
@@ -1393,7 +1405,11 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
         setIsSettingsOpen(prev => !prev);
       }
       if (e.key.toLowerCase() === 'i') {
-        setIsHostPanelOpen(prev => !prev);
+        if (sessionStorage.getItem('isHost') === 'true') {
+          setIsHostPanelOpen(prev => !prev);
+        } else {
+          setChatMessages(prev => [...prev, { sender: 'System', text: 'Solo el Host puede abrir el panel de control.', isSystem: true }]);
+        }
       }
       if (e.key.toLowerCase() === 'p') {
         setIsSocialOpen(prev => !prev);
@@ -1437,28 +1453,12 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
     setDeathScreen(null);
   };
 
+  // El servidor controla el matchTime, reaccionamos a los cambios para los eventos
   useEffect(() => {
-    const timer = setInterval(() => {
-      setMatchTime(prev => {
-        if (hostSettings.infiniteTime) {
-          const elapsed = 180 - prev; 
-          const cycleIndex = Math.floor(elapsed / 20) % 2;
-          setCurrentEvent(cycleIndex === 1 ? 'meteor' : 'normal');
-          return prev;
-        }
-
-        if (prev <= 0) return 0;
-        const newTime = prev - 1;
-        const elapsed = 180 - newTime;
-        
-        // Cada 20 segundos cambiamos de fase (Normal -> Evento -> Normal...)
-        const cycleIndex = Math.floor(elapsed / 20) % 2;
-        setCurrentEvent(cycleIndex === 1 ? 'meteor' : 'normal');
-        return newTime;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [hostSettings.infiniteTime]);
+    const elapsed = 180 - matchTime;
+    const cycleIndex = Math.floor(elapsed / 20) % 2;
+    setCurrentEvent(cycleIndex === 1 ? 'meteor' : 'normal');
+  }, [matchTime]);
 
   // Spawner de Meteoritos dependiente del Evento Activo
   useEffect(() => {
@@ -1625,7 +1625,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                   cameraSystem={cameraSystem}
                   initialPosition={initialSpawn}
                 />
-                <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} />
+                <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} activeWeapon={activeWeapon} />
               </>
             )}
             
@@ -2167,24 +2167,22 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           </div>
 
           <div className="space-y-5">
-            {typeof window !== 'undefined' && window.location.search.includes('mode=training') && (
-              <div>
-                <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Forzar Mapa (Training Ground)</label>
-                <select 
-                  className="w-full bg-black border border-zinc-700 rounded p-2 text-white outline-none focus:border-mangi-orange"
-                  value={localMap}
-                  onChange={(e) => {
-                    setLocalMap(e.target.value);
-                    setChatMessages(prev => [...prev, { sender: 'System', text: `Host cambió el mapa a ${e.target.value}`, isSystem: true }]);
-                  }}
-                >
-                  <option value="Arena Clásica">Arena Clásica</option>
-                  <option value="Cyberpunk City">Cyberpunk City</option>
-                  <option value="Lava Volcano">Lava Volcano</option>
-                  <option value="Neon Tron">Neon Tron</option>
-                </select>
-              </div>
-            )}
+            <div>
+              <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Forzar Mapa</label>
+              <select 
+                className="w-full bg-black border border-zinc-700 rounded p-2 text-white outline-none focus:border-mangi-orange"
+                value={localMap}
+                onChange={(e) => {
+                  window.dispatchEvent(new CustomEvent('request-map-change', { detail: e.target.value }));
+                  setChatMessages(prev => [...prev, { sender: 'System', text: `Host cambió el mapa a ${e.target.value}`, isSystem: true }]);
+                }}
+              >
+                <option value="Arena Clásica">Arena Clásica</option>
+                <option value="Cyberpunk City">Cyberpunk City</option>
+                <option value="Lava Volcano">Lava Volcano</option>
+                <option value="Neon Tron">Neon Tron</option>
+              </select>
+            </div>
 
             <div>
               <label className="text-zinc-400 text-xs font-bold uppercase mb-2 block">Gravedad</label>

@@ -5,7 +5,13 @@ import { RigidBody } from '@react-three/rapier';
 import * as THREE from 'three';
 import { useGLTF, Text } from '@react-three/drei';
 
-function NetworkCar({ transform, username, color = '#ff0000' }: any) {
+const WEAPON_MODELS = {
+  sniper: { file: '/models/Sniper.glb', scale: 0.8 },
+  shotgun: { file: '/models/Shotgun.glb', scale: 0.6 },
+  revolver: { file: '/models/Revolver.glb', scale: 1.2 }
+};
+
+function NetworkCar({ socketId, transform, username, color = '#ff0000', weapon = 'sniper' }: any) {
   const { scene } = useGLTF('/models/car_default.glb');
   const carScene = React.useMemo(() => {
     const clone = scene.clone();
@@ -24,6 +30,10 @@ function NetworkCar({ transform, username, color = '#ff0000' }: any) {
     });
     return clone;
   }, [scene, color]);
+
+  const wData = WEAPON_MODELS[weapon as keyof typeof WEAPON_MODELS] || WEAPON_MODELS.sniper;
+  const weaponModel = useGLTF(wData.file);
+  const weaponScene = React.useMemo(() => weaponModel.scene.clone(), [weaponModel.scene, weapon]);
 
   // Smooth interpolation without memory leaks (pre-allocate objects)
   const groupRef = useRef<any>(null);
@@ -52,11 +62,14 @@ function NetworkCar({ transform, username, color = '#ff0000' }: any) {
       ref={groupRef} 
       type="kinematicPosition" 
       colliders="cuboid" 
-      name={`car_${username}`}
+      name={`car_${socketId}`}
       position={transform.position} 
       rotation={transform.rotation}
     >
       <primitive object={carScene} />
+      <group position={[0, 0.8, -0.5]}>
+        <primitive object={weaponScene} scale={wData.scale} rotation={[0, Math.PI, 0]} />
+      </group>
       <Text 
         position={[0, 2.5, 0]} 
         fontSize={0.8} 
@@ -70,7 +83,7 @@ function NetworkCar({ transform, username, color = '#ff0000' }: any) {
   );
 }
 
-export function MultiplayerManager({ myCarRef, myUsername }) {
+export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
   const [players, setPlayers] = useState<Record<string, any>>({});
   const socketRef = useRef<Socket | null>(null);
   const serverId = typeof window !== 'undefined' ? sessionStorage.getItem('currentServer') : null;
@@ -105,7 +118,7 @@ export function MultiplayerManager({ myCarRef, myUsername }) {
     socket.on('player_updated', (data) => {
        setPlayers(prev => ({
          ...prev,
-         [data.id]: { ...prev[data.id], transform: data.transform, color: data.color || prev[data.id]?.color }
+         [data.id]: { ...prev[data.id], transform: data.transform, color: data.color || prev[data.id]?.color, weapon: data.weapon }
        }));
     });
 
@@ -114,14 +127,22 @@ export function MultiplayerManager({ myCarRef, myUsername }) {
     });
     
     socket.on('player_hit', (data) => {
-       // if we are the target, take damage!
-       if (data.target === myUsername) {
+       // Check if the target is exactly this socket's ID!
+       if (data.target === socket.id) {
           window.dispatchEvent(new CustomEvent('network-player-hit', { detail: data }));
        }
     });
 
     socket.on('player_killed', (data) => {
        window.dispatchEvent(new CustomEvent('network-player-killed', { detail: data }));
+    });
+
+    socket.on('sync_state', (data) => {
+       window.dispatchEvent(new CustomEvent('network-sync-state', { detail: data }));
+    });
+
+    socket.on('map_changed', (newMap) => {
+       window.dispatchEvent(new CustomEvent('network-map-changed', { detail: newMap }));
     });
 
     const handleLocalShoot = (e: any) => {
@@ -133,15 +154,20 @@ export function MultiplayerManager({ myCarRef, myUsername }) {
     const handleLocalDeath = (e: any) => {
        socket.emit('player_killed', serverId, { victim: myUsername, ...e.detail });
     };
+    const handleMapChangeRequest = (e: any) => {
+       socket.emit('change_map', serverId, e.detail);
+    };
     
     window.addEventListener('local-player-shoot', handleLocalShoot);
     window.addEventListener('local-player-hit', handleLocalHit);
     window.addEventListener('local-player-died', handleLocalDeath);
+    window.addEventListener('request-map-change', handleMapChangeRequest);
 
     return () => { 
       window.removeEventListener('local-player-shoot', handleLocalShoot);
       window.removeEventListener('local-player-hit', handleLocalHit);
       window.removeEventListener('local-player-died', handleLocalDeath);
+      window.removeEventListener('request-map-change', handleMapChangeRequest);
       socket.disconnect(); 
     };
   }, [serverId, myUsername]);
@@ -151,11 +177,14 @@ export function MultiplayerManager({ myCarRef, myUsername }) {
   useFrame((state) => {
     if (!socketRef.current || !myCarRef.current || !serverId) return;
     
-    if (state.clock.elapsedTime - lastSyncTime.current > 1/30) {
+    // Throttle updates to ~60 FPS for maximum smoothness
+    if (state.clock.elapsedTime - lastSyncTime.current > 1/60) {
       const t = myCarRef.current.translation();
       const r = myCarRef.current.rotation();
+      // Read active weapon from props
       socketRef.current.emit('player_update', serverId, { 
-        transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] } 
+        transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] },
+        weapon: activeWeapon
       });
       lastSyncTime.current = state.clock.elapsedTime;
     }
@@ -165,7 +194,7 @@ export function MultiplayerManager({ myCarRef, myUsername }) {
     <>
       {Object.values(players).map((p: any) => {
         if (!p.transform) return null;
-        return <NetworkCar key={p.id} transform={p.transform} username={p.username} color={p.color} />;
+        return <NetworkCar key={p.id} socketId={p.id} transform={p.transform} username={p.username} color={p.color} weapon={p.weapon} />;
       })}
     </>
   );
