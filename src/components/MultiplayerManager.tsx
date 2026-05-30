@@ -124,18 +124,37 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
     });
 
     socket.on('player_updated', (data) => {
-       setPlayers(prev => ({
-         ...prev,
-         [data.id]: { 
-           ...prev[data.id], 
-           transform: data.transform || prev[data.id]?.transform, 
-           color: data.color || prev[data.id]?.color, 
-           weapon: data.weapon || prev[data.id]?.weapon,
-           isAlive: data.isAlive 
-         }
-       }));
+       setPlayers(prev => {
+          if (!prev[data.id]) return prev;
+          return {
+            ...prev,
+            [data.id]: { 
+              ...prev[data.id], 
+              transform: data.transform || prev[data.id]?.transform, 
+              color: data.color || prev[data.id]?.color, 
+              weapon: data.weapon || prev[data.id]?.weapon,
+              carModel: data.carModel || prev[data.id]?.carModel,
+              profilePicture: data.profilePicture || prev[data.id]?.profilePicture,
+              isAlive: data.isAlive !== undefined ? data.isAlive : prev[data.id]?.isAlive
+            }
+          };
+       });
+       
+       if (data.profilePicture) {
+         window.dispatchEvent(new CustomEvent('network-player-metadata', { detail: data }));
+       }
     });
 
+    // Sincronizar metadatos del jugador a la red (PFP, Color) cada 2 segundos
+    const metaSync = setInterval(() => {
+       socket.emit('player_update', serverId, { 
+           username: myUsername,
+           profilePicture: myProfilePicture,
+           color: myColor,
+           carModel: myCarModel
+       });
+    }, 2000); 
+    
     socket.on('player_shot', (data) => {
        window.dispatchEvent(new CustomEvent('network-player-shoot', { detail: data }));
     });
@@ -191,6 +210,7 @@ export function MultiplayerManager({ myCarRef, myUsername, myProfilePicture, myC
       window.removeEventListener('local-player-hit', handleLocalHit);
       window.removeEventListener('local-player-died', handleLocalKilled);
       window.removeEventListener('request-map-change', handleMapChange);
+      clearInterval(metaSync);
       socket.disconnect(); 
     };
   }, [serverId, myUsername, myCarModel]);

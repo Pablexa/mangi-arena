@@ -474,6 +474,14 @@ function InteractiveCar({ externalCarRef, carModel = 'default', color, wheelColo
   }, [scene, color, wheelColor]);
 
   useEffect(() => {
+    return () => {
+      if (externalCarRef) {
+        externalCarRef.current = null;
+      }
+    };
+  }, [externalCarRef]);
+
+  useEffect(() => {
     const onRespawn = (e: any) => {
       if (carRef.current) {
         const p = e.detail;
@@ -1247,6 +1255,17 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
     window.addEventListener('network-player-killed', onNetKilled);
     window.addEventListener('network-sync-state', onNetSyncState);
     window.addEventListener('network-map-changed', onNetMapChanged);
+    const onNetMetadata = (e: any) => {
+      const data = e.detail;
+      setLeaderboard(prev => prev.map(p => {
+        if (p.name === data.username) {
+          return { ...p, profilePicture: data.profilePicture };
+        }
+        return p;
+      }));
+    };
+    
+    window.addEventListener('network-player-metadata', onNetMetadata);
     window.addEventListener('network-player-joined', onNetPlayerJoined);
     window.addEventListener('network-player-left', onNetPlayerLeft);
     return () => {
@@ -1255,6 +1274,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       window.removeEventListener('network-player-killed', onNetKilled);
       window.removeEventListener('network-sync-state', onNetSyncState);
       window.removeEventListener('network-map-changed', onNetMapChanged);
+      window.removeEventListener('network-player-metadata', onNetMetadata);
       window.removeEventListener('network-player-joined', onNetPlayerJoined);
       window.removeEventListener('network-player-left', onNetPlayerLeft);
     };
