@@ -170,7 +170,7 @@ export default function ServerBrowserPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-mangi-success">
-                        <Signal size={12} /> {server.ping}ms
+                        <Signal size={12} /> {server.ping}
                       </div>
                     </div>
 

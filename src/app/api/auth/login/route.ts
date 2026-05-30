@@ -28,12 +28,13 @@ export async function POST(req: Request) {
     const equippedColorItem = user.inventory.find(item => item.type === 'EQUIPPED_COLOR');
     const equippedColor = equippedColorItem ? equippedColorItem.name : '#ffffff';
 
-    const equippedItems: Record<string, number> = {};
+    const equippedItems: Record<string, any> = {};
     user.inventory.filter(item => item.type.startsWith('EQUIPPED_') && item.type !== 'EQUIPPED_COLOR').forEach(item => {
       const cat = item.type.replace('EQUIPPED_', '').toLowerCase();
-      // Capitalize first letter to match frontend (Trails, Explosions, etc.)
       const category = cat.charAt(0).toUpperCase() + cat.slice(1);
-      equippedItems[category] = parseInt(item.name);
+      
+      const parsed = parseInt(item.name);
+      equippedItems[category] = isNaN(parsed) ? item.name : parsed;
     });
 
     // Retorna los datos del usuario. En produccion usariamos JWT o cookies de sesion segura.
@@ -47,7 +48,9 @@ export async function POST(req: Request) {
         xp: user.xp,
         inventory: purchasedItems,
         equippedColor: equippedColor,
-        equippedItems: equippedItems
+        equippedItems: equippedItems,
+        profilePicture: user.profilePicture,
+        hitsoundUrl: user.hitsoundUrl
       } 
     });
     
