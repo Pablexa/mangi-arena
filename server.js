@@ -99,6 +99,26 @@ app.prepare().then(() => {
       console.log(`[SOCKET] User disconnected: ${socket.id}`);
       delete global.onlineUsers[socket.id];
       io.emit('online_users_updated', Object.values(global.onlineUsers));
+      
+      // Remove from any rooms
+      for (const room of Object.keys(socket.rooms)) {
+        if (room !== socket.id && room !== 'global-chat') {
+           io.to(room).emit('player_left', socket.id);
+        }
+      }
+    });
+
+    socket.on('join_game', (serverId, playerData) => {
+      socket.join(serverId);
+      socket.to(serverId).emit('player_joined', { id: socket.id, ...playerData });
+    });
+
+    socket.on('player_update', (serverId, data) => {
+      socket.to(serverId).emit('player_updated', { id: socket.id, ...data });
+    });
+
+    socket.on('player_shoot', (serverId, data) => {
+      socket.to(serverId).emit('player_shot', { id: socket.id, ...data });
     });
 
     socket.on('create_room', (roomData) => {

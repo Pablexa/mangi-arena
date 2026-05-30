@@ -422,9 +422,10 @@ function CinematicCamera() {
   return null;
 }
 
-function InteractiveCar({ color, wheelColor, trailColor, turboColor, activeWeapon, onShoot, cameraSystem, initialPosition = [0, 2, 0] }: any) {
+function InteractiveCar({ externalCarRef, color, wheelColor, trailColor, turboColor, activeWeapon, onShoot, cameraSystem, initialPosition = [0, 2, 0] }: any) {
   const { scene } = useGLTF('/models/car_default.glb');
-  const carRef = useRef<any>(null);
+  const internalCarRef = useRef<any>(null);
+  const carRef = externalCarRef || internalCarRef;
   const visualRef = useRef<any>(null);
   const controls = usePlayerControls();
   const lastShootTime = useRef(0);
@@ -1114,7 +1115,10 @@ const SPAWN_POINTS = [
   [-40, 8, -40]
 ];
 
+import { MultiplayerManager } from './MultiplayerManager';
+
 export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: string }) => {
+  const myCarRef = useRef<any>(null);
   const { user, updateCoins } = useUserStore();
   const equippedColor = user?.equippedColor || '#ffffff';
   const controls = usePlayerControls();
@@ -1564,16 +1568,20 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           <Physics timeStep="vary" gravity={[0, -9.81 * hostSettings.gravity, 0]}>
             <MaterialPreloader />
             {!deathScreen && !isSpectator && !intermission && (
-              <InteractiveCar 
-                color={equippedColor} 
-                wheelColor={user?.equippedWheelColor || '#222222'}
-                turboColor={user?.equippedTurboColor || '#22d3ee'}
-                trailColor={STORE_ITEMS.find(i => i.id === user?.equippedItems?.['Trails'])?.hex}
-                activeWeapon={activeWeapon} 
-                onShoot={handleShoot}
-                cameraSystem={cameraSystem}
-                initialPosition={initialSpawn}
-              />
+              <>
+                <InteractiveCar 
+                  externalCarRef={myCarRef}
+                  color={equippedColor} 
+                  wheelColor={user?.equippedWheelColor || '#222222'}
+                  turboColor={user?.equippedTurboColor || '#22d3ee'}
+                  trailColor={STORE_ITEMS.find(i => i.id === user?.equippedItems?.['Trails'])?.hex}
+                  activeWeapon={activeWeapon} 
+                  onShoot={handleShoot}
+                  cameraSystem={cameraSystem}
+                  initialPosition={initialSpawn}
+                />
+                <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} />
+              </>
             )}
             
             {projectiles.map(p => (
