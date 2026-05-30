@@ -24,13 +24,34 @@ export default function PlayPage() {
       return;
     }
 
+    // Prevenir 2 partidas a la vez usando BroadcastChannel
+    const channel = new BroadcastChannel('mangi_game_channel');
+    
+    // Alguien más pregunta si estamos jugando, le decimos que sí
+    channel.onmessage = (e) => {
+      if (e.data === 'check_active') {
+        channel.postMessage('already_playing');
+      } else if (e.data === 'already_playing') {
+        // Alguien más respondió que ya está jugando, nos vamos
+        alert("Ya tienes una partida abierta en otra pestaña. Cierra esta para continuar.");
+        window.location.href = '/servers';
+      }
+    };
+    
+    // Preguntamos si hay alguien más jugando
+    channel.postMessage('check_active');
+
     const interval = setInterval(() => {
       const start = performance.now();
       fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })
         .then(() => setPing(Math.round(performance.now() - start)))
         .catch(() => setPing(Math.round(12 + Math.random() * 5)));
     }, 2000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      channel.close();
+    };
   }, []);
 
   useEffect(() => {
