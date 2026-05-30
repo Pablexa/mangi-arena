@@ -1180,6 +1180,26 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
       const killId = Date.now() + Math.random();
       setKillFeed(prev => [...prev, { id: killId, killer, victim, weapon }]);
       setTimeout(() => setKillFeed(current => current.filter(k => k.id !== killId)), 7000);
+      
+      // Update leaderboard kills & deaths
+      setLeaderboard(prev => prev.map(p => {
+        if (p.name === killer) return { ...p, kills: p.kills + 1 };
+        if (p.name === victim) return { ...p, deaths: p.deaths + 1 };
+        return p;
+      }));
+    };
+
+    const onNetPlayerJoined = (e: any) => {
+      const data = e.detail;
+      setLeaderboard(prev => {
+        if (prev.find(p => p.id === data.id)) return prev;
+        return [...prev, { id: data.id, name: data.username || 'Player', ping: Math.floor(Math.random() * 30) + 10, kills: 0, deaths: 0, profilePicture: undefined, isMe: false, team: 'none' }];
+      });
+    };
+
+    const onNetPlayerLeft = (e: any) => {
+      const id = e.detail;
+      setLeaderboard(prev => prev.filter(p => p.id !== id));
     };
 
     const onNetSyncState = (e: any) => {
@@ -1198,12 +1218,16 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
     window.addEventListener('network-player-killed', onNetKilled);
     window.addEventListener('network-sync-state', onNetSyncState);
     window.addEventListener('network-map-changed', onNetMapChanged);
+    window.addEventListener('network-player-joined', onNetPlayerJoined);
+    window.addEventListener('network-player-left', onNetPlayerLeft);
     return () => {
       window.removeEventListener('network-player-shoot', onNetShoot);
       window.removeEventListener('network-player-hit', onNetHit);
       window.removeEventListener('network-player-killed', onNetKilled);
       window.removeEventListener('network-sync-state', onNetSyncState);
       window.removeEventListener('network-map-changed', onNetMapChanged);
+      window.removeEventListener('network-player-joined', onNetPlayerJoined);
+      window.removeEventListener('network-player-left', onNetPlayerLeft);
     };
   }, [user?.username, deathScreen]);
 
@@ -1612,21 +1636,19 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
           <Preload all />
           <Physics timeStep="vary" gravity={[0, -9.81 * hostSettings.gravity, 0]}>
             <MaterialPreloader />
+            <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} activeWeapon={activeWeapon} />
             {!deathScreen && !isSpectator && !intermission && (
-              <>
-                <InteractiveCar 
-                  externalCarRef={myCarRef}
-                  color={equippedColor} 
-                  wheelColor={user?.equippedWheelColor || '#222222'}
-                  turboColor={user?.equippedTurboColor || '#22d3ee'}
-                  trailColor={STORE_ITEMS.find(i => i.id === user?.equippedItems?.['Trails'])?.hex}
-                  activeWeapon={activeWeapon} 
-                  onShoot={handleShoot}
-                  cameraSystem={cameraSystem}
-                  initialPosition={initialSpawn}
-                />
-                <MultiplayerManager myCarRef={myCarRef} myUsername={user?.username || 'Player'} activeWeapon={activeWeapon} />
-              </>
+              <InteractiveCar 
+                externalCarRef={myCarRef}
+                color={equippedColor} 
+                wheelColor={user?.equippedWheelColor || '#222222'}
+                turboColor={user?.equippedTurboColor || '#22d3ee'}
+                trailColor={STORE_ITEMS.find(i => i.id === user?.equippedItems?.['Trails'])?.hex}
+                activeWeapon={activeWeapon} 
+                onShoot={handleShoot}
+                cameraSystem={cameraSystem}
+                initialPosition={initialSpawn}
+              />
             )}
             
             {projectiles.map(p => (

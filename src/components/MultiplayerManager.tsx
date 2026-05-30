@@ -103,8 +103,20 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
 
     socket.emit('join_game', serverId, { username: myUsername, color: myColor });
 
+    socket.on('existing_players', (playersList) => {
+       const initialPlayers: Record<string, any> = {};
+       playersList.forEach((p: any) => {
+         if (p.id !== socket.id) {
+           initialPlayers[p.id] = p;
+           window.dispatchEvent(new CustomEvent('network-player-joined', { detail: p }));
+         }
+       });
+       setPlayers(prev => ({ ...prev, ...initialPlayers }));
+    });
+
     socket.on('player_joined', (data) => {
        setPlayers(prev => ({ ...prev, [data.id]: data }));
+       window.dispatchEvent(new CustomEvent('network-player-joined', { detail: data }));
     });
     
     socket.on('player_left', (id) => {
@@ -113,12 +125,19 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
          delete next[id];
          return next;
        });
+       window.dispatchEvent(new CustomEvent('network-player-left', { detail: id }));
     });
 
     socket.on('player_updated', (data) => {
        setPlayers(prev => ({
          ...prev,
-         [data.id]: { ...prev[data.id], transform: data.transform, color: data.color || prev[data.id]?.color, weapon: data.weapon }
+         [data.id]: { 
+           ...prev[data.id], 
+           transform: data.transform || prev[data.id]?.transform, 
+           color: data.color || prev[data.id]?.color, 
+           weapon: data.weapon || prev[data.id]?.weapon,
+           isAlive: data.isAlive 
+         }
        }));
     });
 
@@ -175,17 +194,22 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
   const lastSyncTime = useRef(0);
   
   useFrame((state) => {
-    if (!socketRef.current || !myCarRef.current || !serverId) return;
+    if (!socketRef.current || !serverId) return;
     
     // Throttle updates to ~60 FPS for maximum smoothness
     if (state.clock.elapsedTime - lastSyncTime.current > 1/60) {
-      const t = myCarRef.current.translation();
-      const r = myCarRef.current.rotation();
-      // Read active weapon from props
-      socketRef.current.emit('player_update', serverId, { 
-        transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] },
-        weapon: activeWeapon
-      });
+      if (myCarRef.current) {
+        const t = myCarRef.current.translation();
+        const r = myCarRef.current.rotation();
+        // Read active weapon from props
+        socketRef.current.emit('player_update', serverId, { 
+          transform: { position: [t.x, t.y, t.z], rotation: [r.x, r.y, r.z, r.w] },
+          weapon: activeWeapon,
+          isAlive: true
+        });
+      } else {
+        socketRef.current.emit('player_update', serverId, { isAlive: false });
+      }
       lastSyncTime.current = state.clock.elapsedTime;
     }
   });
@@ -193,7 +217,7 @@ export function MultiplayerManager({ myCarRef, myUsername, activeWeapon }) {
   return (
     <>
       {Object.values(players).map((p: any) => {
-        if (!p.transform) return null;
+        if (!p.transform || p.isAlive === false) return null;
         return <NetworkCar key={p.id} socketId={p.id} transform={p.transform} username={p.username} color={p.color} weapon={p.weapon} />;
       })}
     </>

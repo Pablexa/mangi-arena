@@ -95,22 +95,42 @@ app.prepare().then(() => {
       }
     });
 
-    socket.on('disconnect', () => {
-      console.log(`[SOCKET] User disconnected: ${socket.id}`);
-      delete global.onlineUsers[socket.id];
-      io.emit('online_users_updated', Object.values(global.onlineUsers));
-      
+    socket.on('disconnecting', () => {
       // Remove from any rooms
-      for (const room of Object.keys(socket.rooms)) {
+      for (const room of socket.rooms) {
         if (room !== socket.id && room !== 'global-chat') {
+           if (global.roomPlayers && global.roomPlayers[room]) {
+              delete global.roomPlayers[room][socket.id];
+              const r = global.activeRooms.find(ar => ar.id === room);
+              if (r) r.players = Object.keys(global.roomPlayers[room]).length;
+           }
            io.to(room).emit('player_left', socket.id);
         }
       }
     });
 
+    socket.on('disconnect', () => {
+      console.log(`[SOCKET] User disconnected: ${socket.id}`);
+      delete global.onlineUsers[socket.id];
+      io.emit('online_users_updated', Object.values(global.onlineUsers));
+    });
+
     socket.on('join_game', (serverId, playerData) => {
       socket.join(serverId);
+      if (!global.roomPlayers) global.roomPlayers = {};
+      if (!global.roomPlayers[serverId]) global.roomPlayers[serverId] = {};
+      
+      global.roomPlayers[serverId][socket.id] = { id: socket.id, ...playerData };
+      
+      // Send existing players to the new player
+      socket.emit('existing_players', Object.values(global.roomPlayers[serverId]));
+      
+      // Tell everyone else
       socket.to(serverId).emit('player_joined', { id: socket.id, ...playerData });
+      
+      // Update room count
+      const room = global.activeRooms.find(r => r.id === serverId);
+      if (room) room.players = Object.keys(global.roomPlayers[serverId]).length;
     });
 
     socket.on('player_update', (serverId, data) => {
