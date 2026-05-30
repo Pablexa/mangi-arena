@@ -56,7 +56,7 @@ export default function RegisterPage() {
         level: data.user.level || 1,
         xp: data.user.xp || 0,
         coins: data.user.coins || 0
-      });
+      } as any);
 
       playSuccess();
       router.push('/dashboard');

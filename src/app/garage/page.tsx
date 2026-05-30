@@ -72,7 +72,7 @@ function CarModel({ color, wheelColor, activeTrailHex, activeExplosionHex }: { c
             length={15}
             color={new THREE.Color(activeTrailHex)}
             attenuation={(t) => t * t}
-            target={trailTargetRef}
+            target={trailTargetRef as any}
           />
         )}
       </Center>
