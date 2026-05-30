@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-mangi-bg-primary: #050607;
+  --color-mangi-bg-secondary: #0B0D10;
+  
+  --color-mangi-panel: rgba(255,255,255,0.06);
+  --color-mangi-panel-hover: rgba(255,255,255,0.10);
+  
+  --color-mangi-border: rgba(255,255,255,0.12);
+  --color-mangi-border-active: rgba(255,159,28,0.45);
+
+  --color-mangi-orange: #FF9F1C;
+  --color-mangi-gold: #FFD166;
+  --color-mangi-red: #FF4D2E;
+  --color-mangi-deep-red: #C92A1D;
+  
+  --color-mangi-leaf: #3BAA35;
+  --color-mangi-deep-leaf: #146B2E;
+  --color-mangi-lime: #7CFF6B;
+
+  --color-mangi-cream: #FFF8E7;
+
+  --color-mangi-electric: #38BDF8;
+  --color-mangi-danger: #FF4D5E;
+  --color-mangi-success: #4CFF9B;
+  --color-mangi-warning: #FFB020;
+
+  --color-mangi-text-primary: #F8FAFC;
+  --color-mangi-text-secondary: #A1A1AA;
+  --color-mangi-text-muted: #71717A;
+
+  --animate-pulse-fast: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-mango-bounce: mango-bounce 2s ease-in-out infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes mango-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.05);
   }
 }
 
+:root {
+  background-color: var(--color-mangi-bg-primary);
+  color: var(--color-mangi-text-primary);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: radial-gradient(circle at 50% -20%, #1a1005 0%, var(--color-mangi-bg-primary) 50%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-mangi-bg-primary); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-mangi-panel); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-mangi-border); 
 }

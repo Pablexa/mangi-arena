@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  coins     Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Novedades para PFP y Hitsounds
+  profilePicture    String?
+  hitsoundUrl       String?
+  
+  // Relações
+  friends     Friendship[] @relation("UserFriends")
+  friendOf    Friendship[] @relation("FriendUsers")
+  inventory   Item[]
+}
+
+model Hitsound {
+  id          String   @id @default(cuid())
+  name        String
+  url         String
+  uploaderId  String
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  status    String   @default("PENDING") // PENDING, ACCEPTED, BLOCKED
+  createdAt DateTime @default(now())
+
+  user   User @relation("UserFriends", fields: [userId], references: [id])
+  friend User @relation("FriendUsers", fields: [friendId], references: [id])
+
+  @@unique([userId, friendId])
+}
+
+model Item {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   // COLOR, EXPLOSION, TRAIL, HORN
+  rarity    String   @default("COMMON")
+  equipped  Boolean  @default(false)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
