@@ -52,7 +52,7 @@ app.prepare().then(() => {
 
     socket.on('create_room', (roomData) => {
       const newRoom = {
-        id: Math.random().toString(36).substring(7),
+        id: roomData.id || Math.random().toString(36).substring(7),
         hostId: socket.id, // Will be obsolete after redirect, but fine for now
         name: roomData.name || 'Custom Arena',
         map: roomData.map || 'Arena Clásica',

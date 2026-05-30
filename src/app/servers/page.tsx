@@ -53,6 +53,7 @@ export default function ServerBrowserPage() {
 
   const handleJoin = (server: any) => {
     playNotification();
+    sessionStorage.setItem('currentServer', server.id);
     window.location.href = '/play';
   };
 
@@ -144,7 +145,7 @@ export default function ServerBrowserPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-bold group-hover:text-mangi-orange transition-colors">{server.name}</h3>
-                        {server.friends.length > 0 && (
+                        {(server.friends?.length || 0) > 0 && (
                           <span className="px-2 py-0.5 rounded text-xs font-bold bg-mangi-leaf/20 text-mangi-leaf border border-mangi-leaf/30">
                             {server.friends.length} Friends
                           </span>
@@ -318,13 +319,17 @@ export default function ServerBrowserPage() {
                  }));
 
                  const socket = io();
+                 const newId = Math.random().toString(36).substring(7);
                  socket.emit('create_room', {
+                   id: newId,
                    name: (document.querySelector('input[type="text"]') as HTMLInputElement)?.value || 'Custom Arena',
                    map: mapSelect?.value || 'Arena Clásica',
                    mode: modeSelect?.value || 'Deathmatch',
                    maxPlayers: 12,
                    isPrivate: hostPrivacy === 'Privado (Con PIN)'
                  });
+                 
+                 sessionStorage.setItem('currentServer', newId);
                  
                  setTimeout(() => {
                    window.location.href = `/play`;

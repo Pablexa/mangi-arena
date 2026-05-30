@@ -17,6 +17,13 @@ export default function PlayPage() {
   const MAPS = ['Arena Clásica', 'Cyberpunk City', 'Lava Volcano', 'Neon Tron'];
 
   useEffect(() => {
+    // Verificar si el usuario está en un servidor (ha clickeado JUGAR o CREAR)
+    const currentServer = sessionStorage.getItem('currentServer');
+    if (!currentServer) {
+      window.location.href = '/servers';
+      return;
+    }
+
     const interval = setInterval(() => {
       const start = performance.now();
       fetch(window.location.href, { method: 'HEAD', cache: 'no-store' })

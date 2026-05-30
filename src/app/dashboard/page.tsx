@@ -299,12 +299,16 @@ export default function DashboardPage() {
                         }));
 
                         const socket = io();
+                        const newId = Math.random().toString(36).substring(7);
                         socket.emit('create_room', {
+                          id: newId,
                           name: nameInput?.value || `${user?.username || 'Player'}'s Lobby`,
                           map: mapSelect?.value || 'Arena Clásica',
                           mode: 'Chaos Survival',
                           maxPlayers: 12
                         });
+                        
+                        sessionStorage.setItem('currentServer', newId);
                         
                         // Give socket time to emit before redirecting
                         setTimeout(() => {
