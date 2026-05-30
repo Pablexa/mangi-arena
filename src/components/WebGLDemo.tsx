@@ -1136,12 +1136,7 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
   const [killEffects, setKillEffects] = useState<{ id: number; pos: [number, number, number]; hex: string }[]>([]);
 
   const [leaderboard, setLeaderboard] = useState([
-    { name: user?.username || 'You', ping: 12, kills: 0, deaths: 0, profilePicture: user?.profilePicture, isMe: true, team: 'none' },
-    { name: 'MangiDev', ping: 45, kills: 0, deaths: 0, profilePicture: null, isMe: false, team: 'red' },
-    { name: 'RocketPro', ping: 30, kills: 0, deaths: 0, profilePicture: null, isMe: false, team: 'blue' },
-    { name: 'NoobMaster', ping: 110, kills: 0, deaths: 0, profilePicture: null, isMe: false, team: 'red' },
-    { name: 'ProSniper', ping: 25, kills: 0, deaths: 0, profilePicture: null, isMe: false, team: 'blue' },
-    { name: 'Camper99', ping: 60, kills: 0, deaths: 0, profilePicture: null, isMe: false, team: 'red' },
+    { name: user?.username || 'You', ping: 12, kills: 0, deaths: 0, profilePicture: user?.profilePicture, isMe: true, team: 'none' }
   ]);
   const [hasChosenTeam, setHasChosenTeam] = useState(false);
   const [isServerLocked, setIsServerLocked] = useState(false);
@@ -1600,48 +1595,27 @@ export const WebGLDemo = ({ selectedMap = 'Arena Clásica' }: { selectedMap?: st
                     return;
                   }
 
-                  // Hit de Combate (50% de pegarle a alguien virtualmente por ahora)
-                  if (Math.random() > 0.5) {
-                    // Reproducir el hitsound personalizado del usuario o el por defecto
-                    sounds.play(user?.hitsoundUrl || 'hitmarker', 0.5, !!user?.hitsoundUrl);
+                  // Hit físico simple (sin combate falso ni muertes aleatorias)
+                  sounds.play(user?.hitsoundUrl || 'hitmarker', 0.5, !!user?.hitsoundUrl);
+                  
+                  let damage = WEAPONS[weaponType].damage;
+                  if (weaponType === 'shotgun') {
+                    damage = Math.max(5, damage - (hitDist * 0.2));
+                  }
+                  
+                  if (hitPos) {
+                    const markerId = Date.now() + Math.random();
+                    setHitMarkers(prev => [...prev, { id: markerId, pos: hitPos, amount: Math.round(damage) }]);
+                    setTimeout(() => setHitMarkers(prev => prev.filter(m => m.id !== markerId)), 800);
                     
-                    let damage = WEAPONS[weaponType].damage;
-                    if (weaponType === 'shotgun') {
-                      damage = Math.max(5, damage - (hitDist * 0.2));
-                    }
-                    
-                    if (hitPos) {
-                      const markerId = Date.now() + Math.random();
-                      setHitMarkers(prev => [...prev, { id: markerId, pos: hitPos, amount: Math.round(damage) }]);
-                      setTimeout(() => setHitMarkers(prev => prev.filter(m => m.id !== markerId)), 800);
-                    }
-
-                    const victims = leaderboard.filter(p => !p.isMe);
-                    const randomVictim = victims[Math.floor(Math.random() * victims.length)];
-                    const killId = Date.now() + Math.random();
-                    
-                    setLeaderboard(prev => prev.map(p => {
-                      if (p.isMe) return { ...p, kills: p.kills + 1 };
-                      if (p.name === randomVictim.name) return { ...p, deaths: p.deaths + 1 };
-                      return p;
-                    }));
-
-                    updateCoins((user?.coins || 0) + 5);
-                    
-                    if (hitPos && user?.equippedItems?.['Explosions']) {
+                    if (user?.equippedItems?.['Explosions']) {
                        const explosionEffect = STORE_ITEMS.find(i => i.id === user.equippedItems['Explosions']);
                        if (explosionEffect) {
+                         const killId = Date.now() + Math.random();
                          setKillEffects(prev => [...prev, { id: killId, pos: hitPos, hex: explosionEffect.hex }]);
                          setTimeout(() => setKillEffects(prev => prev.filter(e => e.id !== killId)), 1500);
                        }
                     }
-                    
-                    setKillFeed(prev => {
-                      const newFeed = [...prev, { id: killId, killer: user?.username || 'You', victim: randomVictim.name, weapon: weaponType, distance: Math.round(hitDist) }];
-                      return newFeed;
-                    });
-                    setTimeout(() => setKillFeed(current => current.filter(k => k.id !== killId)), 7000);
-                    
                   }
                 }
               }} />

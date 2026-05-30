@@ -51,18 +51,7 @@ export default function PlayPage() {
         <div className="w-full flex justify-between items-center mb-4">
           <h1 className="text-2xl font-black text-white italic tracking-wider">MODO <span className="text-mangi-orange">DE PRUEBA</span></h1>
           
-          <div className="flex items-center gap-3 bg-mangi-panel border border-mangi-border px-4 py-2 rounded-lg">
-            <span className="text-sm font-bold text-mangi-text-secondary">MAPA:</span>
-            <select 
-              value={selectedMap}
-              onChange={(e) => setSelectedMap(e.target.value)}
-              className="bg-black/50 border border-mangi-border text-white text-sm rounded px-3 py-1 outline-none focus:border-mangi-orange"
-            >
-              {MAPS.map(map => (
-                <option key={map} value={map}>{map}</option>
-              ))}
-            </select>
-          </div>
+          {/* Map selection removed for final version */}
         </div>
 
         <GlassCard className="w-full aspect-video p-1 flex flex-col overflow-hidden relative group" id="game-container">
