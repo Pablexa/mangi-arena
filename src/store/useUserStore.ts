@@ -49,7 +49,8 @@ export const useUserStore = create<UserState>()(
         // En login, combinamos lo que viene de la DB con posibles cosas locales
         set((state) => ({ 
           user: { 
-            ...userData, 
+            ...userData,
+            username: userData.username.includes('#') ? userData.username : `${userData.username}#${Math.floor(1000 + Math.random() * 9000)}`,
             inventory: state.user?.inventory || userData.inventory || [], 
             equippedColor: state.user?.equippedColor || userData.equippedColor || '#ffffff',
             equippedItems: state.user?.equippedItems || userData.equippedItems || {},
